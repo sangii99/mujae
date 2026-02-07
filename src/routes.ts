@@ -1,6 +1,7 @@
 import { createBrowserRouter } from "react-router"; // Assuming compat or user intent
 // If this fails, I might need to alias or change later, but user INSISTED on this import.
 import { Login } from "@/pages/Login";
+import { Signup } from "@/pages/Signup";
 import { ProfileSetup } from "@/pages/ProfileSetup";
 import { MainApp } from "@/pages/MainApp";
 
@@ -11,6 +12,7 @@ import { MainApp } from "@/pages/MainApp";
 
 export const router = createBrowserRouter([
   { path: "/", Component: Login },
+  { path: "/signup", Component: Signup },
   { path: "/profile-setup", Component: ProfileSetup },
   { path: "/app", Component: MainApp },
 ]);

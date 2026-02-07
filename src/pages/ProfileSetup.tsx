@@ -1,29 +1,108 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { ArrowRight } from "lucide-react";
+import { KOREA_REGIONS } from "@/utils/koreaRegions";
+import { supabase } from "@/lib/supabase";
 
 export const ProfileSetup: React.FC = () => {
   const navigate = useNavigate();
+  
+  // Split city into region and district for the UI state
+  const [selectedRegion, setSelectedRegion] = useState<string>("");
+  const [selectedDistrict, setSelectedDistrict] = useState<string>("");
+  const [loading, setLoading] = useState(false);
+  
   const [formData, setFormData] = useState({
     ageGroup: "",
-    city: "",
     gender: "",
     occupation: "",
   });
 
-  const isFormValid = formData.ageGroup && formData.city && formData.gender && formData.occupation;
+  useEffect(() => {
+    // Ensure user is logged in
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert("로그인이 필요합니다.");
+        navigate("/");
+        return;
+      }
+      // Optional: Load existing profile data if we want to support "editing"
+    };
+    checkUser();
+  }, [navigate]);
 
-  const handleSubmit = () => {
+  const districts = selectedRegion ? KOREA_REGIONS[selectedRegion as keyof typeof KOREA_REGIONS] || [] : [];
+  
+  // Form is valid if all fields are filled.
+  const isFormValid = 
+    formData.ageGroup && 
+    selectedRegion && 
+    (districts.length === 0 || selectedDistrict) && 
+    formData.gender && 
+    formData.occupation;
+
+  const handleSubmit = async () => {
     if (!isFormValid) return;
-    localStorage.setItem("userProfile", JSON.stringify(formData));
-    navigate("/app");
+    setLoading(true);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No user found");
+
+      // Combine region and district for storage
+      const fullCity = selectedDistrict ? `${selectedRegion} ${selectedDistrict}` : selectedRegion;
+
+      const finalProfile = {
+        age_group: formData.ageGroup, // Match DB column names (snake_case)
+        gender: formData.gender,
+        occupation: formData.occupation,
+        city: fullCity
+      };
+
+      // Supabase Profile 업데이트 또는 생성 (Upsert)
+      // updated_at 컬럼은 테이블에 없으므로 제외하거나, 테이블에 추가해야 합니다.
+      // 일단 제외하고 전송합니다.
+      const { error } = await supabase
+        .from("profiles")
+        .upsert({
+            id: user.id,
+            email: user.email, 
+            ...finalProfile,
+            // updated_at: new Date().toISOString(), // Removing this as column might not exist
+        });
+
+      if (error) throw error;
+
+      // Update LocalStorage for compatibility with current MainApp
+      localStorage.setItem("userProfile", JSON.stringify({
+        ...formData,
+        city: fullCity
+      }));
+
+      navigate("/app");
+    } catch (error: any) {
+      console.error("Profile update error:", error);
+      // Show more detailed error message to user
+      alert(`프로필 저장 중 오류가 발생했습니다: ${error.message || error.error_description || JSON.stringify(error)}`);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const jobCategories = [
+    "학생", 
+    "직장인", 
+    "자영업자", 
+    "프리랜서", 
+    "구직자", 
+    "기타"
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#faf8f3] via-[#f5f3ed] to-[#ede8dc] flex items-center justify-center p-4">
@@ -52,14 +131,44 @@ export const ProfileSetup: React.FC = () => {
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label>지역</Label>
-            <Input 
-                placeholder="예) 서울, 부산" 
-                className="bg-white"
-                value={formData.city} 
-                onChange={(e) => setFormData({...formData, city: e.target.value})} 
-            />
+          <div className="grid grid-cols-2 gap-2">
+             <div className="space-y-2">
+                <Label>지역 (시/도)</Label>
+                <Select 
+                    value={selectedRegion} 
+                    onValueChange={(val) => {
+                        setSelectedRegion(val);
+                        setSelectedDistrict(""); // Reset district on region change
+                    }}
+                >
+                  <SelectTrigger className="bg-white">
+                    <SelectValue placeholder="시/도 선택" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.keys(KOREA_REGIONS).map(region => (
+                        <SelectItem key={region} value={region}>{region}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+             </div>
+             
+             <div className="space-y-2">
+                <Label>지역 (구/군)</Label>
+                <Select 
+                    value={selectedDistrict} 
+                    onValueChange={setSelectedDistrict}
+                    disabled={!selectedRegion || districts.length === 0}
+                >
+                  <SelectTrigger className="bg-white">
+                    <SelectValue placeholder="구/군 선택" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {districts.map(district => (
+                        <SelectItem key={district} value={district}>{district}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+             </div>
           </div>
 
           <div className="space-y-2">
@@ -94,7 +203,7 @@ export const ProfileSetup: React.FC = () => {
                 <SelectValue placeholder="직업을 선택해주세요" />
               </SelectTrigger>
               <SelectContent>
-                {["직장인", "학생", "주부", "프리랜서", "공개안함"].map(job => (
+                {jobCategories.map(job => (
                     <SelectItem key={job} value={job}>{job}</SelectItem>
                 ))}
               </SelectContent>
@@ -103,7 +212,7 @@ export const ProfileSetup: React.FC = () => {
         </CardContent>
         <CardFooter className="flex-col gap-4">
           <Button 
-            className="w-full h-11 text-base gap-2" 
+            className="w-full h-11 text-base gap-2 bg-black text-white hover:bg-gray-800"
             disabled={!isFormValid} 
             onClick={handleSubmit}
           >

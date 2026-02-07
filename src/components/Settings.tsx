@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Settings as SettingsIcon, LogOut } from "lucide-react";
 import { useNavigate } from "react-router";
+import { supabase } from "@/lib/supabase";
 
 interface SettingsProps {
   currentUser: User;
@@ -15,7 +16,8 @@ interface SettingsProps {
 export const Settings: React.FC<SettingsProps> = ({ currentUser, fontSize, onFontSizeChange }) => {
   const navigate = useNavigate();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     localStorage.removeItem("userProfile");
     navigate("/");
   };
