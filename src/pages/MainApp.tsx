@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Heart, Edit3, Settings as SettingsIcon } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; // Need Tooltip
+import { supabase } from "@/lib/supabase";
 
 // Tooltip dummy if I don't implement it fully or simple implementation
 // I'll make a simple Tooltip wrapper inline or import if I made it. I didn't. I'll make it.
@@ -27,18 +28,98 @@ export const MainApp: React.FC = () => {
   const [isTooltipOpen, setIsTooltipOpen] = useState(false); // For sticker count tooltip
 
   useEffect(() => {
-    const userProfile = localStorage.getItem("userProfile");
-    if (userProfile) {
-      const profile = JSON.parse(userProfile);
-      setCurrentUserData(prev => ({
-        ...prev,
-        ageGroup: profile.ageGroup,
-        city: profile.city,
-        occupation: profile.occupation,
-        gender: profile.gender // Assuming gender is in User type or ignored? User type doesn't have gender but profile setup has. I'll ignore for now or add to type if needed. Prompt type def doesn't have gender.
-      }));
-    }
+    fetchUserProfile();
+    fetchStories();
   }, []);
+
+  const fetchUserProfile = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return; // Should handle auth redirect ideally, but Login page handles it.
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+    
+    if (profile) {
+        setCurrentUserData(prev => ({
+            ...prev,
+            id: profile.id,
+            name: profile.nickname || "여행자",
+            city: profile.city || "어딘가",
+            ageGroup: profile.age_group || "알 수 없음",
+            occupation: profile.occupation || "자유인",
+            // gender and others if needed
+        }));
+    }
+  };
+
+  const fetchStories = async () => {
+    // Join with profiles to get author details
+    // Note: This requires foreign key setup properly.
+    const { data, error } = await supabase
+        .from('stories')
+        .select(`
+            *,
+            profiles (
+                nickname,
+                city,
+                age_group,
+                occupation,
+                id,
+                gender,
+                is_gender_public,
+                is_location_detailed
+            )
+        `)
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error("Error fetching stories:", error);
+        return;
+    }
+
+    if (data) {
+        const loadedStories: Story[] = data.map((item: any) => {
+            // Handle profile data safely (Supabase can return object or array depending on relation detection)
+            const profileData = Array.isArray(item.profiles) ? item.profiles[0] : item.profiles;
+            
+            // Logic for city display
+            let displayCity = "";
+            // is_location_detailed (repurposed as is_location_public based on user request)
+            // If true (Public): Show Big Region (Do/Si) only
+            // If false (Private): Show Nothing
+            if (profileData?.is_location_detailed === true) {
+                 const originalCity = profileData.city || "";
+                 displayCity = originalCity.split(" ")[0];
+            } else if (profileData?.is_location_detailed === undefined) {
+                 // Fallback for old records without the flag: default to Public (Big Region)
+                 const originalCity = profileData?.city || "";
+                 displayCity = originalCity.split(" ")[0];
+            }
+
+            return {
+                id: item.id,
+                userId: item.user_id,
+                userName: profileData?.nickname || "알 수 없음",
+                userAvatar: "https://api.dicebear.com/7.x/notionists/svg?seed=" + (profileData?.nickname || "unknown"),
+                userCity: displayCity,
+                userAgeGroup: profileData?.age_group || "",
+                userOccupation: profileData?.occupation || "",
+                userGender: profileData?.is_gender_public ? profileData?.gender : undefined, // Only show if public
+                feedType: item.feed_type as "worry" | "grateful",
+                content: item.content,
+                categories: item.categories || [],
+                empathyCount: item.empathy_count || 0,
+                empathizedBy: [], 
+                stickers: [], 
+                createdAt: new Date(item.created_at),
+            };
+        });
+        setStories(loadedStories);
+    }
+  };
 
   const handleToggleCategory = (category: string) => {
     if (selectedCategories.includes(category)) {
@@ -48,15 +129,22 @@ export const MainApp: React.FC = () => {
     }
   };
 
-  const handleCreateStory = (content: string, categories: string[], feedType: "worry" | "grateful") => {
+  const handleCreateStory = async (content: string, categories: string[], feedType: "worry" | "grateful") => {
+    // Optimistic update
+    const tempId = `temp-${Date.now()}`;
     const newStory: Story = {
-      id: `story-${Date.now()}`,
+      id: tempId,
       userId: currentUserData.id,
       userName: currentUserData.name,
       userAvatar: currentUserData.avatar,
       userCity: currentUserData.city,
       userAgeGroup: currentUserData.ageGroup,
       userOccupation: currentUserData.occupation,
+      // We don't have isGenderPublic in currentUserData yet, need to fetch or store. 
+      // For optimistic update, we might miss it or can assume from loaded profile?
+      // Let's Skip adding gender for optimistic update or add simple one if we had it.
+      // But actually currentUserData needs update too.
+      // Ideally currentUserData should have gender and isGenderPublic.
       feedType,
       content,
       categories: feedType === "worry" ? categories : [],
@@ -65,8 +153,28 @@ export const MainApp: React.FC = () => {
       stickers: [],
       createdAt: new Date(),
     };
+    
     setStories([newStory, ...stories]);
     setCreateStoryOpen(false);
+
+    // Save to Supabase
+    const { error } = await supabase.from('stories').insert({
+        user_id: currentUserData.id,
+        content,
+        feed_type: feedType,
+        categories: feedType === "worry" ? categories : [],
+        empathy_count: 0
+    });
+
+    if (error) {
+        console.error("Error creating story:", error);
+        // Revert or show error
+        alert("글 작성에 실패했습니다.");
+        setStories(prev => prev.filter(s => s.id !== tempId));
+    } else {
+        // Fetch fresh to get real ID and consistent state
+        fetchStories();
+    }
   };
 
   const handleEmpathize = (storyId: string) => {
@@ -151,11 +259,24 @@ export const MainApp: React.FC = () => {
     }
   };
 
-  const handleUpdateProfile = (name: string, avatar: string) => {
+  const handleUpdateProfile = async (name: string, avatar: string) => {
+    // 1. Optimistic Update (UI 즉시 반영)
     setCurrentUserData(prev => ({ ...prev, name, avatar }));
     setStories(prev => prev.map(s => 
         s.userId === currentUserData.id ? { ...s, userName: name, userAvatar: avatar } : s
     ));
+
+    // 2. Supabase DB Update
+    // 주의: 현재 avatar 컬럼은 DB에 없으므로 nickname만 저장합니다.
+    const { error } = await supabase
+        .from('profiles')
+        .update({ nickname: name })
+        .eq('id', currentUserData.id);
+
+    if (error) {
+        console.error("Failed to update profile nickname:", error);
+        alert("닉네임 변경 저장 실패");
+    }
   };
 
   const filteredStories = stories.filter(story => {

@@ -17,6 +17,7 @@ export interface Story {
   userCity: string;
   userAgeGroup: string;
   userOccupation: string;
+  userGender?: string; // Opt-in gender display
   feedType: "worry" | "grateful";
   content: string;
   categories: string[];

@@ -7,6 +7,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { ArrowRight } from "lucide-react";
 import { KOREA_REGIONS } from "@/utils/koreaRegions";
+import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/lib/supabase";
 
 export const ProfileSetup: React.FC = () => {
@@ -21,6 +22,8 @@ export const ProfileSetup: React.FC = () => {
     ageGroup: "",
     gender: "",
     occupation: "",
+    isGenderPublic: true,
+    isLocationDetailed: true,
   });
 
   useEffect(() => {
@@ -62,7 +65,9 @@ export const ProfileSetup: React.FC = () => {
         age_group: formData.ageGroup, // Match DB column names (snake_case)
         gender: formData.gender,
         occupation: formData.occupation,
-        city: fullCity
+        city: fullCity,
+        is_gender_public: formData.isGenderPublic,
+        is_location_detailed: formData.isLocationDetailed, 
       };
 
       // Supabase Profile 업데이트 또는 생성 (Upsert)
@@ -170,6 +175,17 @@ export const ProfileSetup: React.FC = () => {
                 </Select>
              </div>
           </div>
+          
+          <div className="flex items-center space-x-2 justify-end">
+                <Switch 
+                    checked={formData.isLocationDetailed}
+                    onCheckedChange={(checked) => setFormData({...formData, isLocationDetailed: checked})}
+                    className="scale-75 origin-right"
+                />
+                <Label className="cursor-pointer font-normal text-muted-foreground text-xs">
+                    지역 정보 공개 (시/도 단위만 표시)
+                </Label>
+          </div>
 
           <div className="space-y-2">
             <Label>성별</Label>
@@ -191,6 +207,16 @@ export const ProfileSetup: React.FC = () => {
                 <Label htmlFor="other">기타</Label>
               </div>
             </RadioGroup>
+            
+            <div className="flex items-center space-x-2 mt-3 pt-1">
+                <Switch 
+                    checked={formData.isGenderPublic}
+                    onCheckedChange={(checked) => setFormData({...formData, isGenderPublic: checked})}
+                />
+                <Label className="cursor-pointer font-normal text-muted-foreground">
+                    다른 사용자에게 성별 공개
+                </Label>
+            </div>
           </div>
 
           <div className="space-y-2">

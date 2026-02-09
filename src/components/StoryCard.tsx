@@ -42,7 +42,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
           <div className="flex items-center gap-2 text-sm font-medium">
             <span>{story.userName}</span>
             <span className="text-muted-foreground font-normal">
-               · {story.userCity} · {story.userAgeGroup} {story.userOccupation}
+               · {story.userCity} · {story.userAgeGroup} {story.userGender && `· ${story.userGender}`} · {story.userOccupation}
             </span>
           </div>
           <span className="text-xs text-muted-foreground">{timeAgo}</span>
