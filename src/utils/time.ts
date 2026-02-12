@@ -8,3 +8,13 @@ export const getTimeAgo = (date: Date | string) => {
   if (days === 1) return "1일 전";
   return `${days}일 전`;
 };
+
+export const getRemainingDays = (lastUpdated: Date | undefined, coolDownDays: number) => {
+  if (!lastUpdated) return 0;
+  const nextUpdateDate = new Date(lastUpdated);
+  nextUpdateDate.setDate(nextUpdateDate.getDate() + coolDownDays);
+  const now = new Date();
+  const diffTime = nextUpdateDate.getTime() - now.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays > 0 ? diffDays : 0;
+};

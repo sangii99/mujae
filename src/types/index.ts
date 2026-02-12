@@ -7,6 +7,9 @@ export interface User {
   ageGroup: string;
   occupation: string;
   stickerCount: number;
+  lastNicknameUpdated?: Date;
+  lastAgeGroupUpdated?: Date;
+  lastOccupationUpdated?: Date;
 }
 
 export interface Story {

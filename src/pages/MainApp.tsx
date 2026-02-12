@@ -13,6 +13,7 @@ import { Settings } from "../components/Settings";
 import { Tabs, TabsContent } from "../components/ui/tabs";
 import { Button } from "../components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
+import { supabase } from "../lib/supabase";
 
 export default function MainApp() {
   const navigate = useNavigate();
@@ -126,21 +127,53 @@ export default function MainApp() {
   const [fontWeight, setFontWeight] = useState<"normal" | "bold">("normal");
   const [isStickerPickerOpen, setIsStickerPickerOpen] = useState(false);
 
-  // 프로필 확인
+  // 프로필 확인 및 데이터 로드
   useEffect(() => {
-    const userProfile = localStorage.getItem("userProfile");
-    if (userProfile) {
-      const profile = JSON.parse(userProfile);
-      setCurrentUserData(prev => ({
-        ...prev,
-        ageGroup: profile.ageGroup,
-        city: profile.city,
-        occupation: profile.occupation,
-      }));
-    } else {
-      // 프로필이 없으면 프로필 설정 페이지로 리다이렉트
-      navigate("/profile-setup");
-    }
+    const fetchUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session) {
+        // Supabase에서 프로필 가져오기
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (profile) {
+          setCurrentUserData(prev => ({
+            ...prev,
+            id: session.user.id,
+            name: profile.nickname || prev.name,
+            ageGroup: profile.age_group || prev.ageGroup,
+            city: profile.region || prev.city, // region or city depending on DB schema
+            occupation: profile.occupation || prev.occupation,
+            lastNicknameUpdated: profile.last_nickname_updated ? new Date(profile.last_nickname_updated) : undefined,
+            lastAgeGroupUpdated: profile.last_age_group_updated ? new Date(profile.last_age_group_updated) : undefined,
+            lastOccupationUpdated: profile.last_occupation_updated ? new Date(profile.last_occupation_updated) : undefined,
+          }));
+        } else {
+            // 프로필이 없으면 생성 페이지로 (또는 로컬 스토리지 체크)
+             const userProfile = localStorage.getItem("userProfile");
+             if (!userProfile) navigate("/profile-setup");
+        }
+      } else {
+         // 세션 없으면 로컬 스토리지 체크 (Figma 데모용 호환성 유지)
+         const userProfile = localStorage.getItem("userProfile");
+         if (userProfile) {
+           const profile = JSON.parse(userProfile);
+           setCurrentUserData(prev => ({
+             ...prev,
+             ageGroup: profile.ageGroup,
+             city: profile.city,
+             occupation: profile.occupation,
+           }));
+         } else {
+           navigate("/login"); 
+         }
+      }
+    };
+    fetchUser();
   }, [navigate]);
 
   const handleCreateStory = (content: string, categories: string[], feedType: "worry" | "grateful") => {
@@ -261,14 +294,44 @@ export default function MainApp() {
     }
   };
 
-  const handleUpdateProfile = (nickname: string, ageGroup: string, occupation: string) => {
+  const handleUpdateProfile = async (nickname: string, ageGroup: string, occupation: string) => {
+    const updates: any = {};
+    const now = new Date();
+    
+    if (nickname !== currentUserData.name) {
+        updates.nickname = nickname;
+        updates.last_nickname_updated = now.toISOString();
+    }
+    if (ageGroup !== currentUserData.ageGroup) {
+        updates.age_group = ageGroup;
+        updates.last_age_group_updated = now.toISOString();
+    }
+    if (occupation !== currentUserData.occupation) {
+        updates.occupation = occupation;
+        updates.last_occupation_updated = now.toISOString();
+    }
+
     const updatedUser = {
       ...currentUserData,
       name: nickname,
       ageGroup: ageGroup,
       occupation: occupation,
+      lastNicknameUpdated: updates.last_nickname_updated ? new Date(updates.last_nickname_updated) : currentUserData.lastNicknameUpdated,
+      lastAgeGroupUpdated: updates.last_age_group_updated ? new Date(updates.last_age_group_updated) : currentUserData.lastAgeGroupUpdated,
+      lastOccupationUpdated: updates.last_occupation_updated ? new Date(updates.last_occupation_updated) : currentUserData.lastOccupationUpdated,
     };
     setCurrentUserData(updatedUser);
+
+    if (Object.keys(updates).length > 0) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+             const { error } = await supabase
+                .from('profiles')
+                .update(updates)
+                .eq('id', session.user.id);
+             if (error) console.error("Error updating profile:", error);
+        }
+    }
     
     // 기존 스토리들의 사용자 정보도 업데이트
     setStories((prevStories) =>

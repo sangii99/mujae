@@ -9,6 +9,7 @@ import { Label } from "./ui/label";
 import { Pencil } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
+import { getRemainingDays } from "../utils/time";
 
 interface ProfileProps {
   user: User;
@@ -28,6 +29,10 @@ export function Profile({ user, stories, onUpdateProfile, fontSize = 16, fontWei
   const [occupation, setOccupation] = useState(user.occupation);
   const [feedTypeFilter, setFeedTypeFilter] = useState<"all" | "worry" | "grateful">("all");
   const [sortBy, setSortBy] = useState<"latest" | "empathy">("latest");
+
+  const nicknameDaysLeft = getRemainingDays(user.lastNicknameUpdated, 90);
+  const ageGroupDaysLeft = getRemainingDays(user.lastAgeGroupUpdated, 300);
+  const occupationDaysLeft = getRemainingDays(user.lastOccupationUpdated, 180);
   
   const handleSave = () => {
     if (nickname.trim() && ageGroup && occupation) {
@@ -76,8 +81,8 @@ export function Profile({ user, stories, onUpdateProfile, fontSize = 16, fontWei
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <Label htmlFor="nickname">닉네임</Label>
-                        <span className="text-xs text-muted-foreground">
-                          닉네임은 90일에 한번 변경 가능합니다.
+                        <span className={`text-xs ${nicknameDaysLeft > 0 ? "text-red-500 font-medium" : "text-muted-foreground"}`}>
+                          {nicknameDaysLeft > 0 ? `${nicknameDaysLeft}일 후 변경 가능` : "닉네임은 90일에 한번 변경 가능합니다."}
                         </span>
                       </div>
                       <Input
@@ -86,6 +91,7 @@ export function Profile({ user, stories, onUpdateProfile, fontSize = 16, fontWei
                         onChange={(e) => setNickname(e.target.value)}
                         placeholder="닉네임을 입력하세요"
                         maxLength={20}
+                        disabled={nicknameDaysLeft > 0}
                       />
                       <p className="text-xs text-muted-foreground">
                         {nickname.length}/20자
@@ -94,13 +100,14 @@ export function Profile({ user, stories, onUpdateProfile, fontSize = 16, fontWei
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <Label htmlFor="ageGroup">연령대</Label>
-                        <span className="text-xs text-muted-foreground">
-                          연령대 변경은 300일에 한번 변경 가능합니다.
+                        <span className={`text-xs ${ageGroupDaysLeft > 0 ? "text-red-500 font-medium" : "text-muted-foreground"}`}>
+                          {ageGroupDaysLeft > 0 ? `${ageGroupDaysLeft}일 후 변경 가능` : "300일에 한번 변경 가능합니다."}
                         </span>
                       </div>
                       <Select
                         value={ageGroup}
                         onValueChange={setAgeGroup}
+                        disabled={ageGroupDaysLeft > 0}
                       >
                         <SelectTrigger id="ageGroup">
                           <SelectValue placeholder="연령대를 선택하세요">
@@ -120,13 +127,14 @@ export function Profile({ user, stories, onUpdateProfile, fontSize = 16, fontWei
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <Label htmlFor="occupation">직업</Label>
-                        <span className="text-xs text-muted-foreground">
-                          직업 변경은 180일에 한번 가능합니다.
+                        <span className={`text-xs ${occupationDaysLeft > 0 ? "text-red-500 font-medium" : "text-muted-foreground"}`}>
+                          {occupationDaysLeft > 0 ? `${occupationDaysLeft}일 후 변경 가능` : "180일에 한번 변경 가능합니다."}
                         </span>
                       </div>
                       <Select
                         value={occupation}
                         onValueChange={setOccupation}
+                        disabled={occupationDaysLeft > 0}
                       >
                         <SelectTrigger id="occupation">
                           <SelectValue placeholder="직업을 선택하세요">
