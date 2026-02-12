@@ -1,74 +1,254 @@
-import React, { useState } from "react";
-import { User, Story } from "@/types";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MyStoryCard } from "@/components/MyStoryCard";
-import { Edit2, BadgeCheck } from "lucide-react";
+import { useState } from "react";
+import { User, Story } from "../types";
+import { Card } from "./ui/card";
+import { MyStoryCard } from "./MyStoryCard";
+import { Button } from "./ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Pencil } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 
 interface ProfileProps {
-  currentUser: User;
+  user: User;
   stories: Story[];
-  onUpdateProfile: (name: string, avatar: string) => void;
+  onUpdateProfile: (nickname: string, ageGroup: string, occupation: string) => void;
+  fontSize?: number;
+  fontWeight?: "normal" | "bold";
+  onEdit?: (story: Story) => void;
+  onDelete?: (storyId: string) => void;
 }
 
-export const Profile: React.FC<ProfileProps> = ({ currentUser, stories, onUpdateProfile }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [name, setName] = useState(currentUser.name);
-  const [avatar, setAvatar] = useState(currentUser.avatar);
-
+export function Profile({ user, stories, onUpdateProfile, fontSize = 16, fontWeight = "normal", onEdit, onDelete }: ProfileProps) {
+  const userStories = stories.filter((story) => story.userId === user.id);
+  const [open, setOpen] = useState(false);
+  const [nickname, setNickname] = useState(user.name);
+  const [ageGroup, setAgeGroup] = useState(user.ageGroup);
+  const [occupation, setOccupation] = useState(user.occupation);
+  const [feedTypeFilter, setFeedTypeFilter] = useState<"all" | "worry" | "grateful">("all");
+  const [sortBy, setSortBy] = useState<"latest" | "empathy">("latest");
+  
   const handleSave = () => {
-    onUpdateProfile(name, avatar);
-    setIsEditing(false);
+    if (nickname.trim() && ageGroup && occupation) {
+      onUpdateProfile(nickname.trim(), ageGroup, occupation);
+      setOpen(false);
+    }
   };
 
-  const myStories = stories.filter(s => s.userId === currentUser.id);
+  // 피드 타입별 필터링
+  const filteredStories = feedTypeFilter === "all" 
+    ? userStories 
+    : userStories.filter((story) => story.feedType === feedTypeFilter);
 
+  // 정렬
+  const sortedStories = [...filteredStories].sort((a, b) => {
+    if (sortBy === "latest") {
+      return b.createdAt.getTime() - a.createdAt.getTime();
+    } else {
+      return b.empathyCount - a.empathyCount;
+    }
+  });
+  
   return (
-    <div className="space-y-6 pb-20">
-      <div className="bg-white p-6 rounded-lg border border-[#e8e6e0] shadow-sm">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center gap-4">
-            <Avatar className="h-16 w-16">
-              <AvatarImage src={isEditing ? avatar : currentUser.avatar} />
-              <AvatarFallback>{currentUser.name[0]}</AvatarFallback>
-            </Avatar>
-            <div className="space-y-1">
-              {isEditing ? (
-                <Input value={name} onChange={e => setName(e.target.value)} className="h-8 w-32" />
-              ) : (
-                <h2 className="text-xl font-bold">{currentUser.name}</h2>
-              )}
-              <p className="text-sm text-muted-foreground">
-                {currentUser.city} · {currentUser.ageGroup} · {currentUser.occupation}
-              </p>
+    <div className="space-y-6">
+      <Card className="p-6 bg-[#ede8dc] border-0">
+        <div className="flex items-start gap-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h2 className="text-2xl">{user.name}</h2>
+              <Dialog open={open} onOpenChange={setOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="ghost" size="sm" className="gap-2">
+                    <Pencil className="h-4 w-4" />
+                    편집
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md bg-[#f5f3ed] border-[#e8e6e0]">
+                  <DialogHeader>
+                    <DialogTitle>프로필 편집</DialogTitle>
+                    <DialogDescription>
+                      닉네임, 나이, 직업을 수정할 수 있습니다.
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="nickname">닉네임</Label>
+                        <span className="text-xs text-muted-foreground">
+                          닉네임은 90일에 한번 변경 가능합니다.
+                        </span>
+                      </div>
+                      <Input
+                        id="nickname"
+                        value={nickname}
+                        onChange={(e) => setNickname(e.target.value)}
+                        placeholder="닉네임을 입력하세요"
+                        maxLength={20}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {nickname.length}/20자
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="ageGroup">연령대</Label>
+                        <span className="text-xs text-muted-foreground">
+                          연령대 변경은 300일에 한번 변경 가능합니다.
+                        </span>
+                      </div>
+                      <Select
+                        value={ageGroup}
+                        onValueChange={setAgeGroup}
+                      >
+                        <SelectTrigger id="ageGroup">
+                          <SelectValue placeholder="연령대를 선택하세요">
+                            {ageGroup}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="10대">10대</SelectItem>
+                          <SelectItem value="20대">20대</SelectItem>
+                          <SelectItem value="30대">30대</SelectItem>
+                          <SelectItem value="40대">40대</SelectItem>
+                          <SelectItem value="50대">50대</SelectItem>
+                          <SelectItem value="60대 이상">60대 이상</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="occupation">직업</Label>
+                        <span className="text-xs text-muted-foreground">
+                          직업 변경은 180일에 한번 가능합니다.
+                        </span>
+                      </div>
+                      <Select
+                        value={occupation}
+                        onValueChange={setOccupation}
+                      >
+                        <SelectTrigger id="occupation">
+                          <SelectValue placeholder="직업을 선택하세요">
+                            {occupation}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="학생">학생</SelectItem>
+                          <SelectItem value="프리랜서">프리랜서</SelectItem>
+                          <SelectItem value="직장인 (회사원/선생님/판사/의사)">직장인 (회사원/선생님/판사/의사)</SelectItem>
+                          <SelectItem value="공무원">공무원</SelectItem>
+                          <SelectItem value="자영업자">자영업자</SelectItem>
+                          <SelectItem value="군인">군인</SelectItem>
+                          <SelectItem value="기타">기타</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2 justify-end">
+                    <Button variant="outline" onClick={() => setOpen(false)}>
+                      취소
+                    </Button>
+                    <Button onClick={handleSave} disabled={!nickname.trim() || !ageGroup || !occupation}>
+                      저장
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
+            <p className="text-muted-foreground mt-1">
+              {user.city} · {user.ageGroup} {user.occupation}
+            </p>
           </div>
-          <Button variant="outline" size="sm" onClick={() => isEditing ? handleSave() : setIsEditing(true)}>
-            {isEditing ? <BadgeCheck className="w-4 h-4 mr-1" /> : <Edit2 className="w-4 h-4 mr-1" />}
-            {isEditing ? "저장" : "수정"}
-          </Button>
         </div>
-        
-        {isEditing && (
-            <div className="mb-4">
-                <Input placeholder="프로필 이미지 URL" value={avatar} onChange={e => setAvatar(e.target.value)} className="text-xs" />
-            </div>
+      </Card>
+      
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-medium">내가 쓴 글</h3>
+          <Select value={sortBy} onValueChange={(value: "latest" | "empathy") => setSortBy(value)}>
+            <SelectTrigger className="w-[120px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="latest">최신순</SelectItem>
+              <SelectItem value="empathy">공감순</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {userStories.length === 0 ? (
+          <Card className="p-8 text-center text-muted-foreground bg-[#f5f3ed] border-[#e8e6e0]">
+            <p>아직 공유한 이야기가 없습니다.</p>
+          </Card>
+        ) : (
+          <Tabs value={feedTypeFilter} onValueChange={(value: any) => setFeedTypeFilter(value)} className="space-y-4">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="all">전체</TabsTrigger>
+              <TabsTrigger value="worry">😢 걱정과 불안</TabsTrigger>
+              <TabsTrigger value="grateful">💛 감사와 따뜻함</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="all" className="space-y-4">
+              {sortedStories.length === 0 ? (
+                <Card className="p-8 text-center text-muted-foreground bg-[#f5f3ed] border-[#e8e6e0]">
+                  <p>아직 공유한 이야기가 없습니다.</p>
+                </Card>
+              ) : (
+                sortedStories.map((story) => (
+                  <MyStoryCard
+                    key={story.id}
+                    story={story}
+                    fontSize={fontSize}
+                    fontWeight={fontWeight}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                  />
+                ))
+              )}
+            </TabsContent>
+
+            <TabsContent value="worry" className="space-y-4">
+              {sortedStories.length === 0 ? (
+                <Card className="p-8 text-center text-muted-foreground bg-[#f5f3ed] border-[#e8e6e0]">
+                  <p>아직 공유한 걱정과 불안 이야기가 없습니다.</p>
+                </Card>
+              ) : (
+                sortedStories.map((story) => (
+                  <MyStoryCard
+                    key={story.id}
+                    story={story}
+                    fontSize={fontSize}
+                    fontWeight={fontWeight}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                  />
+                ))
+              )}
+            </TabsContent>
+
+            <TabsContent value="grateful" className="space-y-4">
+              {sortedStories.length === 0 ? (
+                <Card className="p-8 text-center text-muted-foreground bg-[#f5f3ed] border-[#e8e6e0]">
+                  <p>아직 공유한 감사와 따뜻함 이야기가 없습니다.</p>
+                </Card>
+              ) : (
+                sortedStories.map((story) => (
+                  <MyStoryCard
+                    key={story.id}
+                    story={story}
+                    fontSize={fontSize}
+                    fontWeight={fontWeight}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                  />
+                ))
+              )}
+            </TabsContent>
+          </Tabs>
         )}
-
-        <div className="bg-orange-50 p-3 rounded-md flex items-center gap-2">
-            <span className="text-xl">🌟</span>
-            <span className="text-sm font-medium text-orange-800">받은 응원 스티커 {currentUser.stickerCount}개</span>
-        </div>
-      </div>
-
-      <h3 className="text-lg font-semibold px-2">내 이야기 ({myStories.length})</h3>
-      <div className="space-y-4">
-        {myStories.map(story => (
-           <MyStoryCard key={story.id} story={story} />
-        ))}
-        {myStories.length === 0 && <p className="text-center text-muted-foreground py-10">작성한 이야기가 없습니다.</p>}
       </div>
     </div>
   );
-};
+}

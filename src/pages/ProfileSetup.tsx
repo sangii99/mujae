@@ -1,254 +1,200 @@
-import React, { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
-import { ArrowRight } from "lucide-react";
-import { KOREA_REGIONS } from "@/utils/koreaRegions";
-import { Switch } from "@/components/ui/switch";
-import { supabase } from "@/lib/supabase";
+import { Heart, ArrowRight } from "lucide-react";
+import { Button } from "../components/ui/button";
+import { Card } from "../components/ui/card";
+import { Label } from "../components/ui/label";
+import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
 
-export const ProfileSetup: React.FC = () => {
+// 지역 데이터
+const regions = {
+  "서울특별시": ["강남구", "강동구", "강북구", "강서구", "관악구", "광진구", "구로구", "금천구", "노원구", "도봉구", "동대문구", "동작구", "마포구", "서대문구", "서초구", "성동구", "성북구", "송파구", "양천구", "영등포구", "용산구", "은평구", "종로구", "중구", "중랑구"],
+  "부산광역시": ["강서구", "금정구", "기장군", "남구", "동구", "동래구", "부산진구", "북구", "사상구", "사하구", "서구", "수영구", "연제구", "영도구", "중구", "해운대구"],
+  "대구광역시": ["남구", "달서구", "달성군", "동구", "북구", "서구", "수성구", "중구"],
+  "인천광역시": ["강화군", "계양구", "남동구", "동구", "미추홀구", "부평구", "서구", "연수구", "옹진군", "중구"],
+  "광주광역시": ["광산구", "남구", "동구", "북구", "서구"],
+  "대전광역시": ["대덕구", "동구", "서구", "유성구", "중구"],
+  "울산광역시": ["남구", "동구", "북구", "울주군", "중구"],
+  "세종특별자치시": ["세종시"],
+  "경기도": ["고양시", "과천시", "광명시", "광주시", "구리시", "군포시", "김포시", "남양주시", "동두천시", "부천시", "성남시", "수원시", "시흥시", "안산시", "안성시", "안양시", "양주시", "여주시", "오산시", "용인시", "의왕시", "의정부시", "이천시", "파주시", "평택시", "포천시", "하남시", "화성시", "가평군", "양평군", "연천군"],
+  "강원특별자치도": ["강릉시", "동해시", "삼척시", "속초시", "원주시", "춘천시", "태백시", "고성군", "양구군", "양양군", "영월군", "인제군", "정선군", "철원군", "평창군", "홍천군", "화천군", "횡성군"],
+  "충청북도": ["제천시", "청주시", "충주시", "괴산군", "단양군", "보은군", "영동군", "옥천군", "음성군", "증평군", "진천군"],
+  "충청남도": ["계룡시", "공주시", "논산시", "당진시", "보령시", "서산시", "아산시", "천안시", "금산군", "부여군", "서천군", "예산군", "청양군", "태안군", "홍성군"],
+  "전북특별자치도": ["군산시", "김제시", "남원시", "익산시", "전주시", "정읍시", "고창군", "무주군", "부안군", "순창군", "완주군", "임실군", "장수군", "진안군"],
+  "전라남도": ["광양시", "나주시", "목포시", "순천시", "여수시", "강진군", "고흥군", "곡성군", "구례군", "담양군", "무안군", "보성군", "신안군", "영광군", "영암군", "완도군", "장성군", "장흥군", "진도군", "함평군", "해남군", "화순군"],
+  "경상북도": ["경산시", "경주시", "구미시", "김천시", "문경시", "상주시", "안동시", "영주시", "영천시", "포항시", "고령군", "군위군", "봉화군", "성주군", "영덕군", "영양군", "예천군", "울릉군", "울진군", "의성군", "청도군", "청송군", "칠곡군"],
+  "경상남도": ["거제시", "김해시", "밀양시", "사천시", "양산시", "진주시", "창원시", "통영시", "거창군", "고성군", "남해군", "산청군", "의령군", "창녕군", "하동군", "함안군", "함양군", "합천군"],
+  "제주특별자치도": ["제주시", "서귀포시"],
+};
+
+export default function ProfileSetup() {
   const navigate = useNavigate();
-  
-  // Split city into region and district for the UI state
-  const [selectedRegion, setSelectedRegion] = useState<string>("");
-  const [selectedDistrict, setSelectedDistrict] = useState<string>("");
-  const [loading, setLoading] = useState(false);
-  
-  const [formData, setFormData] = useState({
-    ageGroup: "",
-    gender: "",
-    occupation: "",
-    isGenderPublic: true,
-    isLocationDetailed: true,
-  });
+  const [age, setAge] = useState("");
+  const [province, setProvince] = useState("");
+  const [city, setCity] = useState("");
+  const [gender, setGender] = useState("");
+  const [occupation, setOccupation] = useState("");
 
-  useEffect(() => {
-    // Ensure user is logged in
-    const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        alert("로그인이 필요합니다.");
-        navigate("/");
-        return;
-      }
-      // Optional: Load existing profile data if we want to support "editing"
-    };
-    checkUser();
-  }, [navigate]);
-
-  const districts = selectedRegion ? KOREA_REGIONS[selectedRegion as keyof typeof KOREA_REGIONS] || [] : [];
-  
-  // Form is valid if all fields are filled.
-  const isFormValid = 
-    formData.ageGroup && 
-    selectedRegion && 
-    (districts.length === 0 || selectedDistrict) && 
-    formData.gender && 
-    formData.occupation;
-
-  const handleSubmit = async () => {
-    if (!isFormValid) return;
-    setLoading(true);
-
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("No user found");
-
-      // Combine region and district for storage
-      const fullCity = selectedDistrict ? `${selectedRegion} ${selectedDistrict}` : selectedRegion;
-
-      const finalProfile = {
-        age_group: formData.ageGroup, // Match DB column names (snake_case)
-        gender: formData.gender,
-        occupation: formData.occupation,
-        city: fullCity,
-        is_gender_public: formData.isGenderPublic,
-        is_location_detailed: formData.isLocationDetailed, 
-      };
-
-      // Supabase Profile 업데이트 또는 생성 (Upsert)
-      // updated_at 컬럼은 테이블에 없으므로 제외하거나, 테이블에 추가해야 합니다.
-      // 일단 제외하고 전송합니다.
-      const { error } = await supabase
-        .from("profiles")
-        .upsert({
-            id: user.id,
-            email: user.email, 
-            ...finalProfile,
-            // updated_at: new Date().toISOString(), // Removing this as column might not exist
-        });
-
-      if (error) throw error;
-
-      // Update LocalStorage for compatibility with current MainApp
-      localStorage.setItem("userProfile", JSON.stringify({
-        ...formData,
-        city: fullCity
-      }));
-
-      navigate("/app");
-    } catch (error: any) {
-      console.error("Profile update error:", error);
-      // Show more detailed error message to user
-      alert(`프로필 저장 중 오류가 발생했습니다: ${error.message || error.error_description || JSON.stringify(error)}`);
-    } finally {
-      setLoading(false);
-    }
+  const handleProvinceChange = (value: string) => {
+    setProvince(value);
+    setCity(""); // 광역시/도가 변경되면 시/군/구 초기화
   };
 
-  const jobCategories = [
-    "학생", 
-    "직장인", 
-    "자영업자", 
-    "프리랜서", 
-    "구직자", 
-    "기타"
-  ];
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // 프로필 정보 저장
+    const profile = {
+      ageGroup: age,
+      city: `${province} ${city}`,
+      gender: gender,
+      occupation: occupation,
+      completedAt: new Date().toISOString(),
+    };
+    
+    localStorage.setItem("userProfile", JSON.stringify(profile));
+    
+    // 메인 앱으로 이동
+    navigate("/app");
+  };
+
+  const isFormValid = age && province && city && gender && occupation;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#faf8f3] via-[#f5f3ed] to-[#ede8dc] flex items-center justify-center p-4">
-      <Card className="w-full max-w-md p-8 bg-[#f5f3ed] border-[#e8e6e0] shadow-xl">
-        <CardHeader>
-          <CardTitle className="text-2xl">프로필 설정</CardTitle>
-          <CardDescription>
-            당신에게 딱 맞는 이야기들을 추천해드릴게요.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <Label>나이대</Label>
-            <Select 
-                value={formData.ageGroup} 
-                onValueChange={(val) => setFormData({...formData, ageGroup: val})}
-            >
-              <SelectTrigger className="bg-white">
-                <SelectValue placeholder="나이대를 선택해주세요" />
-              </SelectTrigger>
-              <SelectContent>
-                {["10대", "20대", "30대", "40대", "50대", "60대 이상"].map(age => (
-                    <SelectItem key={age} value={age}>{age}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-             <div className="space-y-2">
-                <Label>지역 (시/도)</Label>
-                <Select 
-                    value={selectedRegion} 
-                    onValueChange={(val) => {
-                        setSelectedRegion(val);
-                        setSelectedDistrict(""); // Reset district on region change
-                    }}
-                >
-                  <SelectTrigger className="bg-white">
-                    <SelectValue placeholder="시/도 선택" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.keys(KOREA_REGIONS).map(region => (
-                        <SelectItem key={region} value={region}>{region}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-             </div>
-             
-             <div className="space-y-2">
-                <Label>지역 (구/군)</Label>
-                <Select 
-                    value={selectedDistrict} 
-                    onValueChange={setSelectedDistrict}
-                    disabled={!selectedRegion || districts.length === 0}
-                >
-                  <SelectTrigger className="bg-white">
-                    <SelectValue placeholder="구/군 선택" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {districts.map(district => (
-                        <SelectItem key={district} value={district}>{district}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-             </div>
-          </div>
-          
-          <div className="flex items-center space-x-2 justify-end">
-                <Switch 
-                    checked={formData.isLocationDetailed}
-                    onCheckedChange={(checked) => setFormData({...formData, isLocationDetailed: checked})}
-                    className="scale-75 origin-right"
-                />
-                <Label className="cursor-pointer font-normal text-muted-foreground text-xs">
-                    지역 정보 공개 (시/도 단위만 표시)
-                </Label>
-          </div>
-
-          <div className="space-y-2">
-            <Label>성별</Label>
-            <RadioGroup 
-                value={formData.gender} 
-                onValueChange={(val) => setFormData({...formData, gender: val})}
-                className="flex gap-4"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="남성" id="male" />
-                <Label htmlFor="male">남성</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="여성" id="female" />
-                <Label htmlFor="female">여성</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="기타" id="other" />
-                <Label htmlFor="other">기타</Label>
-              </div>
-            </RadioGroup>
-            
-            <div className="flex items-center space-x-2 mt-3 pt-1">
-                <Switch 
-                    checked={formData.isGenderPublic}
-                    onCheckedChange={(checked) => setFormData({...formData, isGenderPublic: checked})}
-                />
-                <Label className="cursor-pointer font-normal text-muted-foreground">
-                    다른 사용자에게 성별 공개
-                </Label>
+      <Card className="w-full max-w-md p-8 bg-[#f5f3ed] border-[#e8e6e0]">
+        <div className="space-y-6">
+          {/* Logo & Title */}
+          <div className="text-center space-y-2">
+            <div className="flex justify-center">
+              <Heart className="h-10 w-10 fill-current text-primary" />
             </div>
+            <h1 className="text-2xl font-semibold">프로필 설정</h1>
+            <p className="text-sm text-muted-foreground">
+              게시글에 표시될 익명 정보를 설정해주세요
+            </p>
           </div>
 
-          <div className="space-y-2">
-            <Label>직업</Label>
-            <Select 
-                value={formData.occupation} 
-                onValueChange={(val) => setFormData({...formData, occupation: val})}
+          {/* Profile Form */}
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* 나이대 */}
+            <div className="space-y-2">
+              <Label htmlFor="age">나이대</Label>
+              <Select value={age} onValueChange={setAge}>
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder="나이대를 선택하세요" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10대">10대</SelectItem>
+                  <SelectItem value="20대">20대</SelectItem>
+                  <SelectItem value="30대">30대</SelectItem>
+                  <SelectItem value="40대">40대</SelectItem>
+                  <SelectItem value="50대">50대</SelectItem>
+                  <SelectItem value="60대 이상">60대 이상</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 지역 */}
+            <div className="space-y-2">
+              <Label htmlFor="province">사는 지역</Label>
+              <Select value={province} onValueChange={handleProvinceChange}>
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder="광역시/도를 선택하세요" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.keys(regions).map((region) => (
+                    <SelectItem key={region} value={region}>
+                      {region}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="city">구/군/시</Label>
+              <Select value={city} onValueChange={setCity}>
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder="구/군/시를 선택하세요" />
+                </SelectTrigger>
+                <SelectContent>
+                  {regions[province]?.map((city) => (
+                    <SelectItem key={city} value={city}>
+                      {city}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 성별 */}
+            <div className="space-y-3">
+              <Label>성별</Label>
+              <RadioGroup value={gender} onValueChange={setGender}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="남성" id="male" />
+                  <Label htmlFor="male" className="font-normal cursor-pointer">
+                    남성
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="여성" id="female" />
+                  <Label htmlFor="female" className="font-normal cursor-pointer">
+                    여성
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="기타" id="other" />
+                  <Label htmlFor="other" className="font-normal cursor-pointer">
+                    기타
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {/* 직업 */}
+            <div className="space-y-2">
+              <Label htmlFor="occupation">직업</Label>
+              <Select value={occupation} onValueChange={setOccupation}>
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder="직업을 선택하세요" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="학생">학생</SelectItem>
+                  <SelectItem value="프리랜서">프리랜서</SelectItem>
+                  <SelectItem value="직장인">직장인 (회사원/선생님/판사/의사)</SelectItem>
+                  <SelectItem value="공무원">공무원</SelectItem>
+                  <SelectItem value="자영업자">자영업자</SelectItem>
+                  <SelectItem value="군인">군인</SelectItem>
+                  <SelectItem value="기타">기타</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button 
+              type="submit" 
+              className="w-full" 
+              size="lg"
+              disabled={!isFormValid}
             >
-              <SelectTrigger className="bg-white">
-                <SelectValue placeholder="직업을 선택해주세요" />
-              </SelectTrigger>
-              <SelectContent>
-                {jobCategories.map(job => (
-                    <SelectItem key={job} value={job}>{job}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-        <CardFooter className="flex-col gap-4">
-          <Button 
-            className="w-full h-11 text-base gap-2 bg-black text-white hover:bg-gray-800"
-            disabled={!isFormValid} 
-            onClick={handleSubmit}
-          >
-            시작하기 <ArrowRight className="h-4 w-4" />
-          </Button>
-          <p className="text-xs text-muted-foreground text-center break-keep">
+              시작하기
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </form>
+
+          <p className="text-center text-xs text-muted-foreground">
             설정한 정보는 게시글에 익명으로 표시되며, 언제든지 설정에서 변경할 수 있습니다.
           </p>
-        </CardFooter>
+        </div>
       </Card>
     </div>
   );
-};
+}

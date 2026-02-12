@@ -1,18 +1,24 @@
-import { createBrowserRouter } from "react-router"; // Assuming compat or user intent
-// If this fails, I might need to alias or change later, but user INSISTED on this import.
-import { Login } from "@/pages/Login";
-import { Signup } from "@/pages/Signup";
-import { ProfileSetup } from "@/pages/ProfileSetup";
-import { MainApp } from "@/pages/MainApp";
-
-// Note: In standard setup, createBrowserRouter is exported from 'react-router-dom'.
-// If 'react-router' package v6/v7 has it, this works.
-// If using RRD v6, this import is wrong but requested.
-// I will adhere to the prompt.
+import { createBrowserRouter } from "react-router";
+import Login from "./pages/Login";
+import SignUp from "./pages/SignUp";
+import ProfileSetup from "./pages/ProfileSetup";
+import MainApp from "./pages/MainApp";
 
 export const router = createBrowserRouter([
-  { path: "/", Component: Login },
-  { path: "/signup", Component: Signup },
-  { path: "/profile-setup", Component: ProfileSetup },
-  { path: "/app", Component: MainApp },
+  {
+    path: "/",
+    Component: Login,
+  },
+  {
+    path: "/signup",
+    Component: SignUp,
+  },
+  {
+    path: "/profile-setup",
+    Component: ProfileSetup,
+  },
+  {
+    path: "/app",
+    Component: MainApp,
+  },
 ]);

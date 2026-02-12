@@ -1,64 +1,73 @@
-import React from "react";
-import { Story } from "@/types";
-import { StoryCard } from "@/components/StoryCard";
-import { EncouragementCard } from "@/components/EncouragementCard";
-import { motion } from "motion/react";
+import { Story } from "../types";
+import { StoryCard } from "./StoryCard";
+import { EncouragementCard } from "./EncouragementCard";
+import { encouragementMessages } from "../utils/encouragementMessages";
+import { FullScreenStoryView } from "./FullScreenStoryView";
 
 interface FeedProps {
   stories: Story[];
-  currentUserId: string;
-  fontSize: number;
   onEmpathize: (storyId: string) => void;
   onSendSticker: (storyId: string, emoji: string, message: string) => void;
-  onStickerPickerOpenChange?: (isOpen: boolean) => void;
+  currentUserId: string;
+  currentUserStickerCount: number;
+  fontSize?: number;
+  fontWeight?: "normal" | "bold";
+  onStickerPickerOpenChange?: (open: boolean) => void;
+  fullScreenMode?: boolean;
+  onEdit?: (story: Story) => void;
+  onDelete?: (storyId: string) => void;
+  onReport?: (storyId: string, reason: string, details?: string) => void;
 }
 
-export const Feed: React.FC<FeedProps> = ({
-  stories,
-  currentUserId,
-  fontSize,
-  onEmpathize,
-  onSendSticker,
-  onStickerPickerOpenChange,
-}) => {
+export function Feed({ stories, onEmpathize, onSendSticker, currentUserId, currentUserStickerCount, fontSize = 16, fontWeight = "normal", onStickerPickerOpenChange, fullScreenMode = false, onEdit, onDelete, onReport }: FeedProps) {
   if (stories.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
-        <div className="text-4xl">📭</div>
-        <p className="text-muted-foreground">아직 이야기가 없네요.</p>
+      <div className="text-center py-12 text-muted-foreground">
+        <p>이야기가 없습니다. 첫 번째로 이야기를 공유해보세요!</p>
       </div>
     );
   }
 
+  // Full screen mode for grateful stories
+  if (fullScreenMode) {
+    return (
+      <FullScreenStoryView
+        stories={stories}
+        onEmpathize={onEmpathize}
+        currentUserId={currentUserId}
+        fontSize={fontSize}
+        fontWeight={fontWeight}
+      />
+    );
+  }
+
+  // Regular card mode for worry stories
   return (
-    <div className="space-y-6 pb-4">
+    <div className="space-y-4">
       {stories.map((story, index) => (
-        <React.Fragment key={story.id}>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: index * 0.05 }}
-          >
-            <StoryCard
-              story={story}
-              currentUserId={currentUserId}
-              fontSize={fontSize}
-              onEmpathize={onEmpathize}
-              onSendSticker={onSendSticker}
-              onStickerPickerOpenChange={onStickerPickerOpenChange}
+        <>
+          <StoryCard
+            key={story.id}
+            story={story}
+            onEmpathize={onEmpathize}
+            onSendSticker={onSendSticker}
+            currentUserId={currentUserId}
+            currentUserStickerCount={currentUserStickerCount}
+            fontSize={fontSize}
+            fontWeight={fontWeight}
+            onStickerPickerOpenChange={onStickerPickerOpenChange}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onReport={onReport}
+          />
+          {(index + 1) % 8 === 0 && index < stories.length - 1 && (
+            <EncouragementCard
+              key={`encouragement-${index}`}
+              message={encouragementMessages[Math.floor((index + 1) / 8 - 1) % encouragementMessages.length].text}
             />
-          </motion.div>
-          {(index + 1) % 4 === 0 && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.5, delay: 0.2 }}
-              >
-                <EncouragementCard />
-              </motion.div>
           )}
-        </React.Fragment>
+        </>
       ))}
     </div>
   );
-};
+}

@@ -1,157 +1,158 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Heart, ArrowLeft } from "lucide-react";
-import { Label } from "@/components/ui/label";
-import { supabase } from "@/lib/supabase";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Card } from "../components/ui/card";
+import { Label } from "../components/ui/label";
 
-export const Signup: React.FC = () => {
+export default function SignUp() {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState({
-    nickname: "",
-    email: "",
-    password: "",
-    passwordConfirm: "",
-  });
-  const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [nickname, setNickname] = useState("");
+  const [error, setError] = useState("");
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    if (name === "nickname" && value.length > 8) return;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const isFormValid = 
-    formData.nickname.length > 0 && 
-    formData.nickname.length <= 8 &&
-    formData.email.includes("@") &&
-    formData.password.length >= 6 &&
-    formData.password === formData.passwordConfirm;
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSignUp = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isFormValid) return;
-    setLoading(true);
+    setError("");
 
-    try {
-      // 1. Sign up user with Metadata (닉네임 메타데이터 포함)
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            nickname: formData.nickname,
-          },
-        },
-      });
-
-      if (authError) throw authError;
-
-      // 2. Insert 제거함 (SQL Trigger로 처리)
-      // Navigate based on session
-      if (authData.session) {
-         navigate("/profile-setup");
-      } else {
-         alert("회원가입 확인 이메일을 발송했습니다. 이메일을 확인해주세요.");
-         navigate("/");
-      }
-    } catch (error: any) {
-      console.error("Signup error:", error);
-      alert(error.message || "회원가입 중 오류가 발생했습니다.");
-    } finally {
-      setLoading(false);
+    // 유효성 검사
+    if (!email || !password || !confirmPassword || !nickname) {
+      setError("모든 필드를 입력해주세요.");
+      return;
     }
+
+    if (password !== confirmPassword) {
+      setError("비밀번호가 일치하지 않습니다.");
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("비밀번호는 최소 6자 이상이어야 합니다.");
+      return;
+    }
+
+    // 간단한 이메일 유효성 검사
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError("올바른 이메일 형식이 아닙니다.");
+      return;
+    }
+
+    // 회원가입 처리 (실제로는 서버에 등록 요청)
+    const userData = {
+      email,
+      nickname,
+      createdAt: new Date().toISOString(),
+    };
+
+    // 로컬스토리지에 사용자 정보 저장
+    localStorage.setItem("userData", JSON.stringify(userData));
+    
+    // 회원가입 완료 후 프로필 설정 페이지로 이동
+    navigate("/profile-setup");
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#faf8f3] via-[#f5f3ed] to-[#ede8dc] flex items-center justify-center p-4">
-      <Card className="w-full max-w-md p-8 bg-[#f5f3ed] border-[#e8e6e0] shadow-xl relative">
-        <Button 
-            variant="ghost" 
-            className="absolute top-4 left-4 p-0 h-auto hover:bg-transparent text-sm gap-1"
+      <Card className="w-full max-w-md p-8 bg-[#f5f3ed] border-[#e8e6e0]">
+        <div className="space-y-6">
+          {/* Back Button */}
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => navigate("/")}
-        >
-            <ArrowLeft className="w-4 h-4" /> 로그인으로 돌아가기
-        </Button>
+            className="mb-2 -ml-2"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            로그인으로 돌아가기
+          </Button>
 
-        <CardHeader className="text-center space-y-4 pt-8">
-          <div className="mx-auto bg-black p-3 rounded-full w-fit">
-            <Heart className="w-8 h-8 text-white fill-current" />
+          {/* Logo & Title */}
+          <div className="text-center space-y-2">
+            <div className="flex justify-center">
+              <Heart className="h-12 w-12 fill-current text-primary" />
+            </div>
+            <h1 className="text-3xl font-semibold">무제</h1>
+            <p className="text-muted-foreground">
+              새로운 계정 만들기
+            </p>
           </div>
-          <CardTitle className="text-3xl font-serif">무제</CardTitle>
-          <CardDescription>새로운 계정 만들기</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+
+          {/* Sign Up Form */}
+          <form onSubmit={handleSignUp} className="space-y-4">
             <div className="space-y-2">
-              <Label className="font-semibold">닉네임</Label>
-              <Input 
-                name="nickname"
-                placeholder="사용할 닉네임을 입력하세요" 
-                className="bg-white" 
-                value={formData.nickname}
-                onChange={handleChange}
-                required 
+              <Label htmlFor="nickname">닉네임</Label>
+              <Input
+                id="nickname"
+                type="text"
+                placeholder="사용할 닉네임을 입력하세요"
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                maxLength={8}
+                required
+                className="bg-background"
               />
               <p className="text-xs text-muted-foreground">최대 8자까지 입력 가능합니다</p>
             </div>
 
             <div className="space-y-2">
-              <Label className="font-semibold">이메일</Label>
-              <Input 
-                name="email"
-                type="email" 
-                placeholder="example@email.com" 
-                className="bg-white"
-                value={formData.email}
-                onChange={handleChange}
-                required 
+              <Label htmlFor="email">이메일</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="example@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="bg-background"
               />
             </div>
 
             <div className="space-y-2">
-              <Label className="font-semibold">비밀번호</Label>
-              <Input 
-                name="password"
-                type="password" 
-                placeholder="최소 6자 이상" 
-                className="bg-white" 
-                value={formData.password}
-                onChange={handleChange}
-                required 
+              <Label htmlFor="password">비밀번호</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="최소 6자 이상"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="bg-background"
               />
             </div>
 
             <div className="space-y-2">
-              <Label className="font-semibold">비밀번호 확인</Label>
-              <Input 
-                name="passwordConfirm"
-                type="password" 
-                placeholder="비밀번호를 다시 입력하세요" 
-                className="bg-white" 
-                value={formData.passwordConfirm}
-                onChange={handleChange}
-                required 
+              <Label htmlFor="confirmPassword">비밀번호 확인</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="비밀번호를 다시 입력하세요"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                className="bg-background"
               />
             </div>
 
-            <Button 
-                type="submit" 
-                className="w-full h-11 text-base bg-black text-white hover:bg-gray-800 mt-6"
-                disabled={!isFormValid}
-            >
-                회원가입
+            {error && (
+              <div className="text-sm text-red-500 text-center bg-red-50 p-2 rounded">
+                {error}
+              </div>
+            )}
+
+            <Button type="submit" className="w-full" size="lg">
+              회원가입
             </Button>
           </form>
-        </CardContent>
-        <CardFooter className="justify-center">
-          <p className="text-xs text-muted-foreground text-center break-keep">
+
+          <p className="text-center text-sm text-muted-foreground">
             회원가입하면 서비스 이용약관 및 개인정보 처리방침에 동의하게 됩니다.
           </p>
-        </CardFooter>
+        </div>
       </Card>
     </div>
   );
-};
+}

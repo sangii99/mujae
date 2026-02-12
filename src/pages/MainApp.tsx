@@ -1,188 +1,177 @@
-import React, { useState, useEffect } from "react";
-import { Story, User, Notification, AVAILABLE_CATEGORIES } from "@/types";
-import { mockStories, currentUser } from "@/utils/mockData";
-import { Feed } from "@/components/Feed";
-import { CategoryFilter } from "@/components/CategoryFilter";
-import { CreateStory } from "@/components/CreateStory";
-import { NotificationPanel } from "@/components/NotificationPanel";
-import { Profile } from "@/components/Profile";
-import { Settings } from "@/components/Settings";
-import { Button } from "@/components/ui/button";
-import { Heart, Edit3, Settings as SettingsIcon } from "lucide-react";
-import { cn } from "@/utils/cn";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; // Need Tooltip
-import { supabase } from "@/lib/supabase";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router";
+import { Heart, Edit3, Settings as SettingsIcon, Sparkles } from "lucide-react";
+import { Feed } from "../components/Feed";
+import { CreateStory } from "../components/CreateStory";
+import empathyIcon from "../assets/1cf87df5e848e0368281bc2ddabccc0ba1ece188.png";
+import { Story, User, Notification } from "../types";
+import { mockStories, currentUser } from "../utils/mockData";
+import { CategoryFilter } from "../components/CategoryFilter";
+import { NotificationPanel } from "../components/NotificationPanel";
+import { Profile } from "../components/Profile";
+import { Settings } from "../components/Settings";
+import { Tabs, TabsContent } from "../components/ui/tabs";
+import { Button } from "../components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 
-// Tooltip dummy if I don't implement it fully or simple implementation
-// I'll make a simple Tooltip wrapper inline or import if I made it. I didn't. I'll make it.
-
-export const MainApp: React.FC = () => {
+export default function MainApp() {
+  const navigate = useNavigate();
   const [stories, setStories] = useState<Story[]>(mockStories);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState("worry");
   const [currentUserData, setCurrentUserData] = useState<User>(currentUser);
   const [createStoryOpen, setCreateStoryOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [editingStory, setEditingStory] = useState<Story | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([
+    {
+      id: "notif-sample-8",
+      type: "sticker",
+      fromUserId: "user-9",
+      fromUserName: "여름날씨",
+      fromUserAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop",
+      storyId: "story-5",
+      storyContent: "오늘 면접에서 떨어졌다는 연락을 받았다. 이번이 다섯 번째인데 자신감이 점점 떨어진다. 내가 뭘 잘못하고 있는 걸까. 계속 도전해야 할지 막막하다.",
+      stickerEmoji: "🌈",
+      stickerMessage: "힘내세요!",
+      createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2시간 전
+      read: false,
+    },
+    {
+      id: "notif-sample-7",
+      type: "empathy",
+      fromUserId: "user-8",
+      fromUserName: "달빛",
+      fromUserAvatar: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=100&h=100&fit=crop",
+      storyId: "story-4",
+      storyContent: "부모님께 커밍아웃을 해야 할지 고민이다. 나를 있는 그대로 보여드리고 싶지만 실망하실까봐 두렵다. 언제쯤 용기를 낼 수 있을까.",
+      createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000), // 3시간 전
+      read: false,
+    },
+    {
+      id: "notif-sample-6",
+      type: "sticker",
+      fromUserId: "user-7",
+      fromUserName: "은하수",
+      fromUserAvatar: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=100&h=100&fit=crop",
+      storyId: "story-3",
+      storyContent: "연인과 헤어진 지 한 달이 지났는데 아직도 마음이 아프다. 시간이 약이라던데 언제쯤 괜찮아질까. 혼자 있는 시간이 너무 외롭다.",
+      stickerEmoji: "🌸",
+      stickerMessage: "괜찮아질 거예요",
+      createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000), // 5시간 전
+      read: false,
+    },
+    {
+      id: "notif-sample-5",
+      type: "empathy",
+      fromUserId: "user-6",
+      fromUserName: "구름",
+      fromUserAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop",
+      storyId: "story-2",
+      storyContent: "회사에서 승진 기회를 놓쳤다. 동기는 올라가는데 나만 제자리인 것 같아서 자존감이 바닥이다. 내가 부족한 건지 운이 없는 건지 모르겠다.",
+      createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1일 전
+      read: false,
+    },
+    {
+      id: "notif-sample-4",
+      type: "sticker",
+      fromUserId: "user-5",
+      fromUserName: "별똥별",
+      fromUserAvatar: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&h=100&fit=crop",
+      storyId: "story-1",
+      storyContent: "가족들과의 관계가 점점 멀어지는 것 같아서 슬프다. 명절에도 대화가 없고 각자 핸드폰만 본다. 예전처럼 다시 가까워질 수 있을까.",
+      stickerEmoji: "💕",
+      stickerMessage: "응원해요!",
+      createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3일 전
+      read: false,
+    },
+    {
+      id: "notif-sample-3",
+      type: "empathy",
+      fromUserId: "user-4",
+      fromUserName: "새벽",
+      fromUserAvatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
+      storyId: "story-0",
+      storyContent: "요즘 새로운 프로젝트를 맡게 되면서 부담감이 크다. 팀원들의 기대에 부응할 수 있을지, 제대로 해낼 수 있을지 걱정된다. 하지만 최선을 다해보려고 한다.",
+      createdAt: new Date(Date.now() - 5 * 60 * 1000),
+      read: false,
+    },
+    {
+      id: "notif-sample-2",
+      type: "sticker",
+      fromUserId: "user-2",
+      fromUserName: "희망의빛",
+      fromUserAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop",
+      storyId: "story-0",
+      storyContent: "요즘 새로운 프로젝트를 맡게 되면서 부담감이 크다. 팀원들의 기대에 부응할 수 있을지, 제대로 해낼 수 있을지 걱정된다. 하지만 최선을 다해보려고 한다.",
+      stickerEmoji: "💪",
+      stickerMessage: "응원합니다!",
+      createdAt: new Date(Date.now() - 10 * 60 * 1000),
+      read: false,
+    },
+    {
+      id: "notif-sample-1",
+      type: "sticker",
+      fromUserId: "user-3",
+      fromUserName: "바다",
+      fromUserAvatar: "https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=100&h=100&fit=crop",
+      storyId: "story-0",
+      storyContent: "요즘 새로운 프로젝트를 맡게 되면서 부담감이 크다. 팀원들의 기대에 부응할 수 있을지, 제대로 해낼 수 있을지 걱정된다. 하지만 최선을 다해보려고 한다.",
+      stickerEmoji: "✨",
+      stickerMessage: "할 수 있어요!",
+      createdAt: new Date(Date.now() - 30 * 60 * 1000),
+      read: false,
+    },
+  ]);
   const [fontSize, setFontSize] = useState(16);
+  const [fontWeight, setFontWeight] = useState<"normal" | "bold">("normal");
   const [isStickerPickerOpen, setIsStickerPickerOpen] = useState(false);
-  const [isTooltipOpen, setIsTooltipOpen] = useState(false); // For sticker count tooltip
 
+  // 프로필 확인
   useEffect(() => {
-    fetchUserProfile();
-    fetchStories();
-  }, []);
-
-  const fetchUserProfile = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return; // Should handle auth redirect ideally, but Login page handles it.
-
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
-    
-    if (profile) {
-        setCurrentUserData(prev => ({
-            ...prev,
-            id: profile.id,
-            name: profile.nickname || "여행자",
-            city: profile.city || "어딘가",
-            ageGroup: profile.age_group || "알 수 없음",
-            occupation: profile.occupation || "자유인",
-            // gender and others if needed
-        }));
-    }
-  };
-
-  const fetchStories = async () => {
-    // Join with profiles to get author details
-    // Note: This requires foreign key setup properly.
-    const { data, error } = await supabase
-        .from('stories')
-        .select(`
-            *,
-            profiles (
-                nickname,
-                city,
-                age_group,
-                occupation,
-                id,
-                gender,
-                is_gender_public,
-                is_location_detailed
-            )
-        `)
-        .order('created_at', { ascending: false });
-
-    if (error) {
-        console.error("Error fetching stories:", error);
-        return;
-    }
-
-    if (data) {
-        const loadedStories: Story[] = data.map((item: any) => {
-            // Handle profile data safely (Supabase can return object or array depending on relation detection)
-            const profileData = Array.isArray(item.profiles) ? item.profiles[0] : item.profiles;
-            
-            // Logic for city display
-            let displayCity = "";
-            // is_location_detailed (repurposed as is_location_public based on user request)
-            // If true (Public): Show Big Region (Do/Si) only
-            // If false (Private): Show Nothing
-            if (profileData?.is_location_detailed === true) {
-                 const originalCity = profileData.city || "";
-                 displayCity = originalCity.split(" ")[0];
-            } else if (profileData?.is_location_detailed === undefined) {
-                 // Fallback for old records without the flag: default to Public (Big Region)
-                 const originalCity = profileData?.city || "";
-                 displayCity = originalCity.split(" ")[0];
-            }
-
-            return {
-                id: item.id,
-                userId: item.user_id,
-                userName: profileData?.nickname || "알 수 없음",
-                userAvatar: "https://api.dicebear.com/7.x/notionists/svg?seed=" + (profileData?.nickname || "unknown"),
-                userCity: displayCity,
-                userAgeGroup: profileData?.age_group || "",
-                userOccupation: profileData?.occupation || "",
-                userGender: profileData?.is_gender_public ? profileData?.gender : undefined, // Only show if public
-                feedType: item.feed_type as "worry" | "grateful",
-                content: item.content,
-                categories: item.categories || [],
-                empathyCount: item.empathy_count || 0,
-                empathizedBy: [], 
-                stickers: [], 
-                createdAt: new Date(item.created_at),
-            };
-        });
-        setStories(loadedStories);
-    }
-  };
-
-  const handleToggleCategory = (category: string) => {
-    if (selectedCategories.includes(category)) {
-      setSelectedCategories(prev => prev.filter(c => c !== category));
+    const userProfile = localStorage.getItem("userProfile");
+    if (userProfile) {
+      const profile = JSON.parse(userProfile);
+      setCurrentUserData(prev => ({
+        ...prev,
+        ageGroup: profile.ageGroup,
+        city: profile.city,
+        occupation: profile.occupation,
+      }));
     } else {
-      setSelectedCategories(prev => [...prev, category]);
+      // 프로필이 없으면 프로필 설정 페이지로 리다이렉트
+      navigate("/profile-setup");
     }
-  };
+  }, [navigate]);
 
-  const handleCreateStory = async (content: string, categories: string[], feedType: "worry" | "grateful") => {
-    // Optimistic update
-    const tempId = `temp-${Date.now()}`;
+  const handleCreateStory = (content: string, categories: string[], feedType: "worry" | "grateful") => {
     const newStory: Story = {
-      id: tempId,
+      id: `story-${Date.now()}`,
       userId: currentUserData.id,
       userName: currentUserData.name,
       userAvatar: currentUserData.avatar,
       userCity: currentUserData.city,
       userAgeGroup: currentUserData.ageGroup,
       userOccupation: currentUserData.occupation,
-      // We don't have isGenderPublic in currentUserData yet, need to fetch or store. 
-      // For optimistic update, we might miss it or can assume from loaded profile?
-      // Let's Skip adding gender for optimistic update or add simple one if we had it.
-      // But actually currentUserData needs update too.
-      // Ideally currentUserData should have gender and isGenderPublic.
       feedType,
       content,
-      categories: feedType === "worry" ? categories : [],
+      categories,
       empathyCount: 0,
       empathizedBy: [],
       stickers: [],
       createdAt: new Date(),
+      isPublic: true, // 기본값은 전체공개
     };
-    
     setStories([newStory, ...stories]);
     setCreateStoryOpen(false);
-
-    // Save to Supabase
-    const { error } = await supabase.from('stories').insert({
-        user_id: currentUserData.id,
-        content,
-        feed_type: feedType,
-        categories: feedType === "worry" ? categories : [],
-        empathy_count: 0
-    });
-
-    if (error) {
-        console.error("Error creating story:", error);
-        // Revert or show error
-        alert("글 작성에 실패했습니다.");
-        setStories(prev => prev.filter(s => s.id !== tempId));
-    } else {
-        // Fetch fresh to get real ID and consistent state
-        fetchStories();
-    }
   };
 
   const handleEmpathize = (storyId: string) => {
-    setStories(prevStories =>
-      prevStories.map(story => {
+    setStories((prevStories) =>
+      prevStories.map((story) => {
         if (story.id === storyId) {
           const hasEmpathized = story.empathizedBy.includes(currentUserData.id);
           
+          // 공감 추가 시 알림 생성 (자신의 글이 아닐 때)
           if (!hasEmpathized && story.userId !== currentUserData.id) {
             const newNotification: Notification = {
               id: `notif-${Date.now()}`,
@@ -191,11 +180,11 @@ export const MainApp: React.FC = () => {
               fromUserName: currentUserData.name,
               fromUserAvatar: currentUserData.avatar,
               storyId: story.id,
-              storyContent: story.content.substring(0, 30) + "...",
+              storyContent: story.content,
               createdAt: new Date(),
               read: false,
             };
-            setNotifications(prev => [newNotification, ...prev]);
+            setNotifications((prev) => [newNotification, ...prev]);
           }
           
           return {
@@ -204,7 +193,7 @@ export const MainApp: React.FC = () => {
               ? story.empathyCount - 1
               : story.empathyCount + 1,
             empathizedBy: hasEmpathized
-              ? story.empathizedBy.filter(id => id !== currentUserData.id)
+              ? story.empathizedBy.filter((id) => id !== currentUserData.id)
               : [...story.empathizedBy, currentUserData.id],
           };
         }
@@ -214,253 +203,386 @@ export const MainApp: React.FC = () => {
   };
 
   const handleSendSticker = (storyId: string, emoji: string, message: string) => {
-    const story = stories.find(s => s.id === storyId);
-    if (!story) return;
-
-    // Logic: if sending to others, decrease count. If to self (simulation), increase count.
-    const isSelf = story.userId === currentUserData.id;
-
-    if (isSelf) {
-        setCurrentUserData(prev => ({
-            ...prev,
-            stickerCount: prev.stickerCount + 1,
-        }));
-        // Notify self (simulation)
-        const newNotification: Notification = {
-            id: `notif-${Date.now()}`,
-            type: "sticker",
-            fromUserId: "anonymous",
-            fromUserName: "익명의 친구",
-            fromUserAvatar: "", 
-            storyId: story.id,
-            storyContent: story.content.substring(0, 30) + "...",
-            stickerEmoji: emoji,
-            stickerMessage: message,
-            createdAt: new Date(),
-            read: false,
-        };
-        setNotifications(prev => [newNotification, ...prev]);
-
-    } else {
-        setCurrentUserData(prev => ({
-            ...prev,
-            stickerCount: prev.stickerCount - 1,
-        }));
-        // In real app, we'd notify the author. Here we just update local story stickers
-        setStories(prev => prev.map(s => {
-            if (s.id === storyId) {
-                return {
-                    ...s,
-                    stickers: [...s.stickers, { userId: currentUserData.id, emoji, message }]
-                };
-            }
-            return s;
-        }));
-    }
-  };
-
-  const handleUpdateProfile = async (name: string, avatar: string) => {
-    // 1. Optimistic Update (UI 즉시 반영)
-    setCurrentUserData(prev => ({ ...prev, name, avatar }));
-    setStories(prev => prev.map(s => 
-        s.userId === currentUserData.id ? { ...s, userName: name, userAvatar: avatar } : s
-    ));
-
-    // 2. Supabase DB Update
-    // 주의: 현재 avatar 컬럼은 DB에 없으므로 nickname만 저장합니다.
-    const { error } = await supabase
-        .from('profiles')
-        .update({ nickname: name })
-        .eq('id', currentUserData.id);
-
-    if (error) {
-        console.error("Failed to update profile nickname:", error);
-        alert("닉네임 변경 저장 실패");
-    }
-  };
-
-  const filteredStories = stories.filter(story => {
-    if (activeTab === "empathy") {
-        return story.empathizedBy.includes(currentUserData.id);
-    }
-    if (activeTab === "profile" || activeTab === "settings") return false; // Handled by conditional render
+    // 스티 없으면 전송 불가
+    if (currentUserData.stickerCount === 0) return;
     
-    // Filter by tab type logic
-    // Prompt says: 
-    // worry tab -> feedType="worry"
-    // grateful tab -> feedType="grateful"
-    // Also category filter applies to worry tab
-    if (activeTab === "worry") {
-        if (story.feedType !== "worry") return false;
-        if (selectedCategories.length === 0) return true;
-        return story.categories.some(cat => selectedCategories.includes(cat));
+    const targetStory = stories.find((s) => s.id === storyId);
+    if (!targetStory) return;
+    
+    // 이미 이 스토리에 스티커를 보냈으면 전송 불가
+    const hasSentSticker = targetStory.stickers.some((s) => s.userId === currentUserData.id);
+    if (hasSentSticker) return;
+    
+    // 자기 글인지 확인 (자기 글에 보내면 다른 사람이 보낸 것으로 시뮬레이션)
+    const isOwnStory = targetStory.userId === currentUserData.id;
+    
+    // 응원 스티커 알림 생성
+    const newNotification: Notification = {
+      id: `notif-${Date.now()}`,
+      type: "sticker",
+      fromUserId: isOwnStory ? "anonymous" : currentUserData.id,
+      fromUserName: isOwnStory ? "익명의 친구" : currentUserData.name,
+      fromUserAvatar: isOwnStory ? "" : currentUserData.avatar,
+      storyId: targetStory.id,
+      storyContent: targetStory.content,
+      stickerEmoji: emoji,
+      stickerMessage: message,
+      createdAt: new Date(),
+      read: false,
+    };
+    setNotifications((prev) => [newNotification, ...prev]);
+    
+    // 스티커 전송
+    setStories((prevStories) =>
+      prevStories.map((story) => {
+        if (story.id === storyId) {
+          return {
+            ...story,
+            stickers: [...story.stickers, { userId: currentUserData.id, message, emoji }],
+          };
+        }
+        return story;
+      })
+    );
+    
+    // 현재 사용자의 스티커 개수 업데이트
+    if (isOwnStory) {
+      // 자기 글에 보낼 때: 다른 사람이 보낸 것으로 시뮬레이션 (스티커 받기 = +1)
+      setCurrentUserData((prev) => ({
+        ...prev,
+        stickerCount: prev.stickerCount + 1,
+      }));
+    } else {
+      // 다른 사람 글에 보낼 때: 스티커 보내기 (= -1)
+      setCurrentUserData((prev) => ({
+        ...prev,
+        stickerCount: prev.stickerCount - 1,
+      }));
     }
-    if (activeTab === "grateful") {
-        return story.feedType === "grateful";
+  };
+
+  const handleUpdateProfile = (nickname: string, ageGroup: string, occupation: string) => {
+    const updatedUser = {
+      ...currentUserData,
+      name: nickname,
+      ageGroup: ageGroup,
+      occupation: occupation,
+    };
+    setCurrentUserData(updatedUser);
+    
+    // 기존 스토리들의 사용자 정보도 업데이트
+    setStories((prevStories) =>
+      prevStories.map((story) =>
+        story.userId === currentUserData.id
+          ? { 
+              ...story, 
+              userName: nickname,
+              userAgeGroup: ageGroup,
+              userOccupation: occupation,
+            }
+          : story
+      )
+    );
+  };
+
+  const handleEditStory = (story: Story) => {
+    setEditingStory(story);
+    setCreateStoryOpen(true);
+  };
+
+  const handleUpdateStory = (storyId: string, content: string, categories: string[]) => {
+    setStories((prevStories) =>
+      prevStories.map((story) =>
+        story.id === storyId
+          ? { ...story, content, categories }
+          : story
+      )
+    );
+    setEditingStory(null);
+    setCreateStoryOpen(false);
+  };
+
+  const handleDeleteStory = (storyId: string) => {
+    setStories((prevStories) => prevStories.filter((story) => story.id !== storyId));
+  };
+
+  const handleReportStory = (storyId: string, reason: string, details?: string) => {
+    // 실제 구현에서는 서버로 신고 데이터를 전송
+    console.log("신고된 스토리:", { storyId, reason, details });
+    // 성공 메시지 또는 토스트 표시 가능
+    alert("신고가 접수되었습니다. 검토 후 조치하겠습니다.");
+  };
+
+  const handleToggleCategory = (category: string) => {
+    if (category === "all") {
+      setSelectedCategories([]);
+    } else {
+      setSelectedCategories((prev) =>
+        prev.includes(category)
+          ? prev.filter((c) => c !== category)
+          : [...prev, category]
+      );
     }
-    return true;
-  });
+  };
+
+  const filterStoriesByFeedType = (feedType: "worry" | "grateful") => {
+    const feedStories = stories.filter((story) => story.feedType === feedType);
+    return selectedCategories.length === 0
+      ? feedStories
+      : feedStories.filter((story) =>
+          story.categories.some((cat) => selectedCategories.includes(cat))
+        );
+  };
+
+  const worryStories = filterStoriesByFeedType("worry");
+  const gratefulStories = filterStoriesByFeedType("grateful");
+
+  const empathizedStories = stories.filter((story) =>
+    story.empathizedBy.includes(currentUserData.id)
+  );
 
   return (
-    <div className="min-h-screen bg-[#faf8f3]">
+    <div className="min-h-screen bg-gradient-to-br from-[#faf8f3] via-[#f5f3ed] to-[#ede8dc]">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-[#faf8f3]/95 backdrop-blur border-b border-[#e8e6e0] px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-           {/* Sticker Count Tooltip */}
-           <div className="relative group cursor-pointer" onClick={() => setIsTooltipOpen(!isTooltipOpen)}>
-              <div className="bg-orange-100 text-orange-600 px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1">
-                 <span>🌟</span> {currentUserData.stickerCount}
-              </div>
-              {/* Tooltip implementation inline for simplicity or use tooltip component */}
-              <div className="absolute top-full left-0 mt-2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                  보유한 응원 스티커
-              </div>
-           </div>
+      <header className="border-b sticky top-0 z-10" style={{
+        background: `linear-gradient(to bottom, 
+          rgba(255, 255, 255, 0.05), 
+          rgba(255, 255, 255, 0.01))`,
+        backdropFilter: 'blur(16px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(16px) saturate(180%)',
+        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.02)',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.3)'
+      }}>
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" className="h-10 gap-1.5 px-3">
+                    <Sparkles className="h-5 w-5" />
+                    <span className="text-sm font-medium">{currentUserData.stickerCount}</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{currentUserData.name} 님이 보낼 수 있는 응원 스티커 개수는 {currentUserData.stickerCount} 개 입니다.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <div className="flex items-center gap-2">
+              <Heart className="h-6 w-6 fill-current" />
+              <h1 className="text-xl font-semibold">무제</h1>
+            </div>
+            <NotificationPanel
+              notifications={notifications}
+              onMarkAsRead={(id) => {
+                setNotifications((prev) =>
+                  prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+                );
+              }}
+              onClearAll={() => setNotifications([])}
+            />
+          </div>
         </div>
-        
-        <div className="flex items-center gap-1">
-            <Heart className="w-5 h-5 text-red-500 fill-current" />
-            <span className="font-serif text-xl font-bold">무제</span>
-        </div>
-
-        <NotificationPanel 
-            notifications={notifications} 
-            onMarkAsRead={(id) => setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))}
-            onClearAll={() => setNotifications([])}
-        />
       </header>
 
       {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4 pt-4 pb-24">
-         {activeTab === "worry" && (
-            <div className="space-y-4">
-                <div className="text-center py-4">
-                    <h2 className="text-2xl font-medium">😢 걱정과 불안</h2>
-                    <p className="text-muted-foreground">당신의 걱정을 나누세요. 당신만 그런 게 아니에요.</p>
-                </div>
-                <CategoryFilter 
-                    selectedCategories={selectedCategories}
-                    onToggleCategory={handleToggleCategory}
-                    onClearCategories={() => setSelectedCategories([])}
-                />
-                <Feed 
-                    stories={filteredStories}
-                    currentUserId={currentUserData.id}
-                    fontSize={fontSize}
-                    onEmpathize={handleEmpathize}
-                    onSendSticker={handleSendSticker}
-                    onStickerPickerOpenChange={setIsStickerPickerOpen}
-                />
+      <main className="container mx-auto px-4 py-8 pb-24">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsContent value="worry" className="space-y-6">
+            <div className="max-w-4xl mx-auto space-y-6">
+              <div>
+                <h2 className="text-2xl font-medium mb-2">😢 걱정과 불안</h2>
+                <p className="text-muted-foreground">
+                  당신의 걱정을 나누세요. 당신만 그런 게 아니에요.
+                </p>
+              </div>
+              <CategoryFilter
+                selectedCategories={selectedCategories}
+                onToggleCategory={handleToggleCategory}
+              />
+              <Feed
+                stories={worryStories}
+                onEmpathize={handleEmpathize}
+                onSendSticker={handleSendSticker}
+                currentUserId={currentUserData.id}
+                currentUserStickerCount={currentUserData.stickerCount}
+                fontSize={fontSize}
+                fontWeight={fontWeight}
+                onStickerPickerOpenChange={setIsStickerPickerOpen}
+                onEdit={handleEditStory}
+                onDelete={handleDeleteStory}
+                onReport={handleReportStory}
+              />
             </div>
-         )}
-         
-         {activeTab === "grateful" && (
-            <div className="space-y-4">
-                <div className="text-center py-4">
-                    <h2 className="text-2xl font-medium">💛 감사와 따뜻함</h2>
-                    <p className="text-muted-foreground">따뜻했던 순간을 나누세요. 당신의 이야기가 누군가에게는 힘이 돼요.</p>
-                </div>
-                <Feed 
-                    stories={filteredStories}
-                    currentUserId={currentUserData.id}
-                    fontSize={fontSize}
-                    onEmpathize={handleEmpathize}
-                    onSendSticker={handleSendSticker}
-                    onStickerPickerOpenChange={setIsStickerPickerOpen}
-                />
-            </div>
-         )}
+          </TabsContent>
 
-         {activeTab === "empathy" && (
-            <div className="space-y-4">
-                <div className="text-center py-4">
-                    <h2 className="text-2xl font-medium">공감한 이야기</h2>
+          <TabsContent value="grateful" className="space-y-6">
+            <div className="fixed inset-0 flex flex-col" style={{ top: '73px', bottom: '73px' }}>
+              <div className="flex-shrink-0 px-4 pt-6 pb-4 max-w-4xl mx-auto w-full">
+                <div>
+                  <h2 className="text-2xl font-medium mb-2">💛 감사와 따뜻함</h2>
+                  <p className="text-muted-foreground">
+                    따뜻했던 순간을 나누세요. 당신의 이야기가 누군가에게는 힘이 돼요.
+                  </p>
                 </div>
-                 <Feed 
-                    stories={filteredStories}
-                    currentUserId={currentUserData.id}
-                    fontSize={fontSize}
-                    onEmpathize={handleEmpathize}
-                    onSendSticker={handleSendSticker}
-                    onStickerPickerOpenChange={setIsStickerPickerOpen}
+              </div>
+              <div className="flex-1 overflow-hidden px-4 max-w-4xl mx-auto w-full">
+                <Feed
+                  stories={gratefulStories}
+                  onEmpathize={handleEmpathize}
+                  onSendSticker={handleSendSticker}
+                  currentUserId={currentUserData.id}
+                  currentUserStickerCount={currentUserData.stickerCount}
+                  fontSize={fontSize}
+                  fontWeight={fontWeight}
+                  fullScreenMode={true}
+                  onReport={handleReportStory}
                 />
+              </div>
             </div>
-         )}
+          </TabsContent>
 
-         {activeTab === "profile" && (
-            <Profile 
-                currentUser={currentUserData}
+          <TabsContent value="empathy" className="space-y-6">
+            <div className="max-w-4xl mx-auto space-y-6">
+              <div>
+                <h2 className="text-2xl font-medium mb-2">공감한 이야기</h2>
+                <p className="text-muted-foreground">
+                  당신이 공감한 이야기들 - 당신만 그런 게 아니에요.
+                </p>
+              </div>
+              {empathizedStories.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <p>아직 공감한 이야기가 없습니다.</p>
+                  <p className="text-sm mt-2">탐색을 시작하고 다른 사람들과 연결되어 보세요!</p>
+                </div>
+              ) : (
+                <Feed
+                  stories={empathizedStories}
+                  onEmpathize={handleEmpathize}
+                  onSendSticker={handleSendSticker}
+                  currentUserId={currentUserData.id}
+                  currentUserStickerCount={currentUserData.stickerCount}
+                  fontSize={fontSize}
+                  fontWeight={fontWeight}
+                />
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="profile" className="space-y-6">
+            <div className="max-w-4xl mx-auto">
+              <Profile
+                user={currentUserData}
                 stories={stories}
                 onUpdateProfile={handleUpdateProfile}
-            />
-         )}
-
-         {activeTab === "settings" && (
-            <Settings 
-                currentUser={currentUserData}
                 fontSize={fontSize}
-                onFontSizeChange={setFontSize}
+                fontWeight={fontWeight}
+                onEdit={handleEditStory}
+                onDelete={handleDeleteStory}
+              />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="settings" className="space-y-6">
+            <Settings
+              fontSize={fontSize}
+              onFontSizeChange={setFontSize}
+              fontWeight={fontWeight}
+              onFontWeightChange={setFontWeight}
             />
-         )}
+          </TabsContent>
+        </Tabs>
       </main>
 
       {/* Floating Action Button */}
-      {/* Hide when sticker picker is open */}
-      {!isStickerPickerOpen && activeTab !== "settings" && activeTab !== "profile" && (
-          <Button 
-            className="fixed bottom-24 right-4 h-14 w-14 rounded-full shadow-lg z-20 bg-primary text-primary-foreground hover:bg-primary/90"
-            onClick={() => setCreateStoryOpen(true)}
-          >
-            <Edit3 className="h-6 w-6" />
-          </Button>
+      {!isStickerPickerOpen && (
+        <Button
+          size="lg"
+          className="fixed bottom-20 right-4 h-14 w-14 rounded-full shadow-lg z-20"
+          onClick={() => setCreateStoryOpen(true)}
+        >
+          <Edit3 className="h-6 w-6" />
+        </Button>
       )}
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-t z-[60]">
-        <div className="flex items-center justify-around py-2">
-            <button 
-                onClick={() => setActiveTab("worry")}
-                className={cn("flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors", activeTab === "worry" ? "text-foreground" : "text-muted-foreground")}
+      <nav className="fixed bottom-0 left-0 right-0 border-t z-[60]" style={{
+        background: `linear-gradient(to top, 
+          rgba(255, 255, 255, 0.05), 
+          rgba(255, 255, 255, 0.01))`,
+        backdropFilter: 'blur(16px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(16px) saturate(180%)',
+        boxShadow: '0 -4px 6px rgba(0, 0, 0, 0.02)',
+        borderTop: '1px solid rgba(255, 255, 255, 0.3)'
+      }}>
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-around py-3">
+            <button
+              className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
+                activeTab === "worry" ? "text-foreground bg-accent" : "text-muted-foreground"
+              }`}
+              onClick={() => setActiveTab("worry")}
             >
-                <span className="text-xl">🌧️</span>
-                <span className="text-[10px]">걱정</span>
+              <span className="text-xl">🌧️</span>
             </button>
-            <button 
-                onClick={() => setActiveTab("grateful")}
-                className={cn("flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors", activeTab === "grateful" ? "text-foreground" : "text-muted-foreground")}
+            
+            <button
+              className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
+                activeTab === "grateful" ? "text-foreground bg-accent" : "text-muted-foreground"
+              }`}
+              onClick={() => setActiveTab("grateful")}
             >
-                <span className="text-xl">☀️</span>
-                <span className="text-[10px]">감사</span>
+              <span className="text-xl">☀️</span>
             </button>
-            <button 
-                onClick={() => setActiveTab("empathy")}
-                className={cn("flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors", activeTab === "empathy" ? "text-red-500" : "text-muted-foreground")}
+
+            <button
+              className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
+                activeTab === "empathy" ? "text-foreground bg-accent" : "text-muted-foreground"
+              }`}
+              onClick={() => setActiveTab("empathy")}
             >
-                <Heart className={cn("h-5 w-5", activeTab === "empathy" ? "fill-current" : "")} />
-                <span className="text-[10px]">공감</span>
+              <img 
+                src={empathyIcon} 
+                alt="공감" 
+                className="h-5 w-5"
+              />
             </button>
-            <button 
-                onClick={() => setActiveTab("profile")}
-                className={cn("flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors", activeTab === "profile" ? "text-foreground" : "text-muted-foreground")}
+
+            <button
+              className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
+                activeTab === "profile" ? "text-foreground bg-accent" : "text-muted-foreground"
+              }`}
+              onClick={() => setActiveTab("profile")}
             >
-                <span className="text-xl">👤</span>
-                <span className="text-[10px]">프로필</span>
+              <span className="text-xl">👤</span>
             </button>
-            <button 
-                onClick={() => setActiveTab("settings")}
-                className={cn("flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors", activeTab === "settings" ? "text-foreground" : "text-muted-foreground")}
+
+            <button
+              className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
+                activeTab === "settings" ? "text-foreground bg-accent" : "text-muted-foreground"
+              }`}
+              onClick={() => setActiveTab("settings")}
             >
-                <SettingsIcon className="h-5 w-5" />
-                <span className="text-[10px]">설정</span>
+              <SettingsIcon className="h-5 w-5" />
             </button>
+          </div>
         </div>
       </nav>
 
+      {/* Create Story Dialog */}
       <CreateStory 
-        open={createStoryOpen} 
-        onOpenChange={setCreateStoryOpen}
-        onCreate={handleCreateStory}
+        onCreateStory={handleCreateStory}
+        open={createStoryOpen}
+        onOpenChange={(open) => {
+          setCreateStoryOpen(open);
+          if (!open) {
+            setEditingStory(null);
+          }
+        }}
+        currentTab={activeTab}
+        editingStory={editingStory}
+        onUpdateStory={handleUpdateStory}
       />
     </div>
   );
-};
+}

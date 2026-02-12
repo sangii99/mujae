@@ -1,45 +1,63 @@
-import React from "react";
-import { AVAILABLE_CATEGORIES } from "@/types";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/utils/cn";
+import { Badge } from "./ui/badge";
+import { AVAILABLE_CATEGORIES } from "../types";
+import { useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 interface CategoryFilterProps {
   selectedCategories: string[];
   onToggleCategory: (category: string) => void;
-  onClearCategories: () => void;
 }
 
-export const CategoryFilter: React.FC<CategoryFilterProps> = ({
-  selectedCategories,
-  onToggleCategory,
-  onClearCategories
-}) => {
+export function CategoryFilter({ selectedCategories, onToggleCategory }: CategoryFilterProps) {
+  const [showAll, setShowAll] = useState(false);
+  
+  // "모든 이야기" 포함 총 10개까지 노출
+  const allItems = ["all", ...AVAILABLE_CATEGORIES];
+  const visibleCount = showAll ? allItems.length : 10;
+  const hasMore = allItems.length > 10;
+
   return (
-    <div className="flex flex-wrap gap-2 py-4">
-      <Button
-        variant={selectedCategories.length === 0 ? "default" : "outline"}
-        size="sm"
-        onClick={onClearCategories}
-        className="rounded-full"
-      >
-        전체
-      </Button>
-      {AVAILABLE_CATEGORIES.map((category) => (
-        <Button
-          key={category}
-          variant={selectedCategories.includes(category) ? "default" : "outline"}
-          size="sm"
-          onClick={() => onToggleCategory(category)}
-          className={cn(
-             "rounded-full transition-all",
-             selectedCategories.includes(category) 
-                ? "bg-slate-800 text-white hover:bg-slate-900" 
-                : "text-slate-600 hover:text-slate-800 hover:bg-slate-100"
-          )}
+    <div className="space-y-3">
+      <h3 className="font-medium">카테고리별 필터</h3>
+      <div className="flex flex-wrap gap-2">
+        <Badge
+          variant={selectedCategories.length === 0 ? "default" : "outline"}
+          className="cursor-pointer"
+          onClick={() => onToggleCategory("all")}
         >
-          {category}
-        </Button>
-      ))}
+          모든 이야기
+        </Badge>
+        {AVAILABLE_CATEGORIES.slice(0, showAll ? AVAILABLE_CATEGORIES.length : 9).map((category) => (
+          <Badge
+            key={category}
+            variant={selectedCategories.includes(category) ? "default" : "outline"}
+            className="cursor-pointer"
+            onClick={() => onToggleCategory(category)}
+          >
+            {category}
+          </Badge>
+        ))}
+        {hasMore && !showAll && (
+          <Badge
+            variant="outline"
+            className="cursor-pointer gap-1 text-muted-foreground hover:bg-accent"
+            onClick={() => setShowAll(true)}
+          >
+            <ChevronDown className="h-3 w-3" />
+            더보기
+          </Badge>
+        )}
+        {hasMore && showAll && (
+          <Badge
+            variant="outline"
+            className="cursor-pointer gap-1 text-muted-foreground hover:bg-accent"
+            onClick={() => setShowAll(false)}
+          >
+            <ChevronUp className="h-3 w-3" />
+            접기
+          </Badge>
+        )}
+      </div>
     </div>
   );
-};
+}
