@@ -17,7 +17,7 @@ import { supabase } from "../lib/supabase";
 
 export default function MainApp() {
   const navigate = useNavigate();
-  const [stories, setStories] = useState<Story[]>(mockStories);
+  const [stories, setStories] = useState<Story[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState("worry");
   const [currentUserData, setCurrentUserData] = useState<User>(currentUser);
@@ -146,14 +146,16 @@ export default function MainApp() {
             id: session.user.id,
             name: profile.nickname || prev.name,
             ageGroup: profile.age_group || prev.ageGroup,
-            city: profile.region || prev.city, // region or city depending on DB schema
+            city: profile.city || prev.city, // region -> city 변경
             occupation: profile.occupation || prev.occupation,
+            gender: profile.gender || prev.gender, // gender 추가
+            isGenderPublic: profile.is_gender_public || prev.isGenderPublic, // 성별 공개 여부 추가
             lastNicknameUpdated: profile.last_nickname_updated ? new Date(profile.last_nickname_updated) : undefined,
             lastAgeGroupUpdated: profile.last_age_group_updated ? new Date(profile.last_age_group_updated) : undefined,
             lastOccupationUpdated: profile.last_occupation_updated ? new Date(profile.last_occupation_updated) : undefined,
           }));
         } else {
-            // 프로필이 없으면 생성 페이지로 (또는 로컬 스토리지 체크)
+             // 프로필이 없으면 생성 페이지로 (또는 로컬 스토리지 체크)
              const userProfile = localStorage.getItem("userProfile");
              if (!userProfile) navigate("/profile-setup");
         }
@@ -176,26 +178,108 @@ export default function MainApp() {
     fetchUser();
   }, [navigate]);
 
-  const handleCreateStory = (content: string, categories: string[], feedType: "worry" | "grateful") => {
-    const newStory: Story = {
-      id: `story-${Date.now()}`,
-      userId: currentUserData.id,
-      userName: currentUserData.name,
-      userAvatar: currentUserData.avatar,
-      userCity: currentUserData.city,
-      userAgeGroup: currentUserData.ageGroup,
-      userOccupation: currentUserData.occupation,
-      feedType,
-      content,
-      categories,
-      empathyCount: 0,
-      empathizedBy: [],
-      stickers: [],
-      createdAt: new Date(),
-      isPublic: true, // 기본값은 전체공개
-    };
-    setStories([newStory, ...stories]);
-    setCreateStoryOpen(false);
+  const fetchStories = async () => {
+    // 1. 스토리 데이터 먼저 가져오기
+    const { data: storiesData, error: storiesError } = await supabase
+      .from('stories')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (storiesError) {
+      console.error("Error fetching stories:", storiesError);
+      return;
+    }
+
+    if (!storiesData) return;
+
+    // 2. 관련된 사용자 ID 추출
+    const userIds = Array.from(new Set(storiesData.map((s) => s.user_id).filter(Boolean)));
+
+    // 3. 사용자 프로필 정보 한 번에 가져오기
+    const { data: profilesData } = await supabase
+      .from('profiles')
+      .select('id, nickname, age_group, city, occupation, is_gender_public') // region -> city, is_gender_public 추가
+      .in('id', userIds);
+
+    // 4. 프로필 데이터 매핑을 위한 맵(Map) 생성
+    const profileMap = new Map();
+    if (profilesData) {
+      profilesData.forEach((profile) => {
+        profileMap.set(profile.id, profile);
+      });
+    }
+
+    // 5. 스토리와 프로필 합치기
+    const mappedStories: Story[] = storiesData.map((post: any) => {
+      const profile = profileMap.get(post.user_id) || {};
+
+      return {
+        id: post.id,
+        userId: post.user_id,
+        userName: profile.nickname || "익명",
+        userAvatar: "https://github.com/shadcn.png", // 기본 아바타
+        userCity: profile.city || "",
+        userAgeGroup: profile.age_group || "",
+        userOccupation: profile.occupation || "",
+        userGender: profile.is_gender_public ? profile.gender : undefined, // 성별 공개 여부에 따라 표시
+        feedType: post.feed_type as "worry" | "grateful",
+        content: post.content,
+        categories: post.categories || [],
+        empathyCount: post.empathy_count || 0,
+        empathizedBy: post.empathized_by || [], // 필요한 경우 배열 파싱 로직 추가
+        stickers: [], // stickers 컬럼이 없거나 DB 구조가 다르면 제외
+        createdAt: new Date(post.created_at),
+        isPublic: true,
+      };
+    });
+    setStories(mappedStories);
+  };
+
+  useEffect(() => {
+    fetchStories();
+  }, []);
+
+  const handleCreateStory = async (content: string, categories: string[], feedType: "worry" | "grateful") => {
+    try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const { data, error } = await supabase.from('stories').insert({ // posts -> stories 변경
+            user_id: session.user.id,
+            content,
+            categories,
+            feed_type: feedType,
+            empathy_count: 0,
+            empathized_by: [],
+            stickers: []
+        }).select().single();
+
+        if (error) throw error;
+        
+        fetchStories();
+        setCreateStoryOpen(false);
+    } catch (e) {
+        console.error("Error creating story:", e);
+        const newStory: Story = {
+            id: `story-${Date.now()}`,
+            userId: currentUserData.id,
+            userName: currentUserData.name,
+            userAvatar: currentUserData.avatar,
+            userCity: currentUserData.city,
+            userAgeGroup: currentUserData.ageGroup,
+            userOccupation: currentUserData.occupation,
+            feedType,
+            content,
+            categories,
+            empathyCount: 0,
+            empathizedBy: [],
+            stickers: [],
+            createdAt: new Date(),
+            isPublic: true,
+        };
+        setStories([newStory, ...stories]);
+        setCreateStoryOpen(false);
+    }
   };
 
   const handleEmpathize = (storyId: string) => {

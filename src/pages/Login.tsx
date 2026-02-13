@@ -1,28 +1,62 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
+import { Link } from "react-router"; // Link 추가
 import { Heart } from "lucide-react";
+import { supabase } from "../lib/supabase"; // Supabase 클라이언트 추가
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card } from "../components/ui/card";
+import { Label } from "../components/ui/label"; // Label 추가
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+    setLoading(true);
     
-    // 간단한 로그인 처리 (실제로는 인증 로직이 필요)
-    if (email && password) {
-      // 프로필이 설정되어 있는지 확인
-      const hasProfile = localStorage.getItem("userProfile");
-      
-      if (hasProfile) {
-        navigate("/app");
-      } else {
-        navigate("/profile-setup");
-      }
+    // 이메일 비밀번호 입력 확인
+    if (!email || !password) {
+        setError("이메일과 비밀번호를 모두 입력해주세요.");
+        setLoading(false);
+        return;
+    }
+
+    try {
+        // 1. Supabase 로그인
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+        });
+
+        if (signInError) throw signInError;
+
+        if (data.user) {
+            // 2. 프로필 존재 여부 확인
+            const { data: profile, error: profileError } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('id', data.user.id)
+                .maybeSingle(); // single() 대신 maybeSingle() 사용 (없을 수도 있으므로)
+
+            if (profile) {
+                // 프로필이 있으면 앱 메인으로
+                navigate("/app");
+            } else {
+                // 프로필이 없으면 설정 페이지로
+                navigate("/profile-setup");
+            }
+        }
+    } catch (err: any) {
+        console.error("Login error:", err);
+        setError("이메일 또는 비밀번호가 올바르지 않습니다.");
+    } finally {
+        setLoading(false);
     }
   };
 
@@ -73,8 +107,14 @@ export default function Login() {
               />
             </div>
 
-            <Button type="submit" className="w-full" size="lg">
-              로그인
+            {error && (
+              <p className="text-sm text-red-500 font-medium text-center">
+                {typeof error === 'string' ? error : "로그인 중 오류가 발생했습니다."}
+              </p>
+            )}
+
+            <Button type="submit" className="w-full" size="lg" disabled={loading}>
+              {loading ? "로그인 중..." : "로그인"}
             </Button>
           </form>
 

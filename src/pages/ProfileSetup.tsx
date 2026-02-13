@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { Heart, ArrowRight } from "lucide-react";
+import { supabase } from "../lib/supabase";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { Label } from "../components/ui/label";
@@ -47,19 +48,49 @@ export default function ProfileSetup() {
     setCity(""); // 광역시/도가 변경되면 시/군/구 초기화
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // 프로필 정보 저장
+    const fullCity = `${province} ${city}`;
+
+    // 1. 프로필 정보 로컬 저장 (백업/오프라인용)
     const profile = {
       ageGroup: age,
-      city: `${province} ${city}`,
+      city: fullCity,
       gender: gender,
       occupation: occupation,
       completedAt: new Date().toISOString(),
     };
-    
     localStorage.setItem("userProfile", JSON.stringify(profile));
+
+    // 2. Supabase DB에 저장 (실제 서버 동기화)
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        // User Metadata에서 닉네임 가져오기 (회원가입 시 저장됨)
+        const nickname = session.user.user_metadata.nickname || "";
+
+        const { error } = await supabase
+          .from('profiles')
+          .upsert({
+            id: session.user.id,
+            nickname: nickname, // 닉네임 추가 저장
+            age_group: age,
+            city: fullCity, // region -> city로 변경 (DB 스키마 맞춤)
+            gender: gender, // DB에 gender 컬럼 존재함
+            occupation: occupation,
+            is_gender_public: false, // 기본값 false로 설정
+            updated_at: new Date().toISOString(),
+          });
+
+        if (error) {
+          console.error("Error updating profile in Supabase:", error);
+          // 에러 발생하더라도 로컬 스토리지에 저장했으므로 진행은 함 (혹은 alert 표시)
+        }
+      }
+    } catch (err) {
+      console.error("Error accessing Supabase auth:", err);
+    }
     
     // 메인 앱으로 이동
     navigate("/app");
@@ -126,7 +157,7 @@ export default function ProfileSetup() {
                   <SelectValue placeholder="구/군/시를 선택하세요" />
                 </SelectTrigger>
                 <SelectContent>
-                  {regions[province]?.map((city) => (
+                  {(regions[province as keyof typeof regions] || []).map((city: string) => (
                     <SelectItem key={city} value={city}>
                       {city}
                     </SelectItem>

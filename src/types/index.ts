@@ -6,6 +6,8 @@ export interface User {
   city: string;
   ageGroup: string;
   occupation: string;
+  gender?: string; // 추가
+  isGenderPublic?: boolean; // 추가
   stickerCount: number;
   lastNicknameUpdated?: Date;
   lastAgeGroupUpdated?: Date;
@@ -28,6 +30,7 @@ export interface Story {
   empathizedBy: string[];
   stickers: { userId: string; message: string; emoji: string }[];
   createdAt: Date;
+  isPublic?: boolean;
 }
 
 export interface Notification {

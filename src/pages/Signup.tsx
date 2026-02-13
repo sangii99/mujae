@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { Heart, ArrowLeft } from "lucide-react";
+import { supabase } from "../lib/supabase"; // Supabase 클라이언트 추가
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card } from "../components/ui/card";
@@ -13,24 +14,29 @@ export default function SignUp() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [nickname, setNickname] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSignUp = (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
     // 유효성 검사
     if (!email || !password || !confirmPassword || !nickname) {
       setError("모든 필드를 입력해주세요.");
+      setLoading(false);
       return;
     }
 
     if (password !== confirmPassword) {
       setError("비밀번호가 일치하지 않습니다.");
+      setLoading(false);
       return;
     }
 
     if (password.length < 6) {
       setError("비밀번호는 최소 6자 이상이어야 합니다.");
+      setLoading(false);
       return;
     }
 
@@ -38,21 +44,37 @@ export default function SignUp() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setError("올바른 이메일 형식이 아닙니다.");
+      setLoading(false);
       return;
     }
 
-    // 회원가입 처리 (실제로는 서버에 등록 요청)
-    const userData = {
-      email,
-      nickname,
-      createdAt: new Date().toISOString(),
-    };
+    try {
+      // 1. Supabase 회원가입 요청
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            nickname, // 메타데이터에 닉네임 저장
+          },
+        },
+      });
 
-    // 로컬스토리지에 사용자 정보 저장
-    localStorage.setItem("userData", JSON.stringify(userData));
-    
-    // 회원가입 완료 후 프로필 설정 페이지로 이동
-    navigate("/profile-setup");
+      if (signUpError) {
+        throw signUpError;
+      }
+
+      if (data.user) {
+        // 2. 회원가입 성공 시 프로필 설정 페이지로 이동
+        // (자동 로그인이 되었으므로 세션이 유지된 상태로 이동)
+        navigate("/profile-setup");
+      }
+    } catch (err: any) {
+      console.error("Signup error:", err);
+      setError(err.message || "회원가입 중 오류가 발생했습니다.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -139,12 +161,12 @@ export default function SignUp() {
 
             {error && (
               <div className="text-sm text-red-500 text-center bg-red-50 p-2 rounded">
-                {error}
+                {typeof error === 'string' ? error : "회원가입 중 오류가 발생했습니다."}
               </div>
             )}
 
-            <Button type="submit" className="w-full" size="lg">
-              회원가입
+            <Button type="submit" className="w-full" size="lg" disabled={loading}>
+              {loading ? "가입 중..." : "회원가입"}
             </Button>
           </form>
 
