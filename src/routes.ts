@@ -3,6 +3,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ProfileSetup from "./pages/ProfileSetup";
 import MainApp from "./pages/MainApp";
+import AdminDashboard from "./pages/AdminDashboard";
 
 export const router = createBrowserRouter([
   {
@@ -20,5 +21,9 @@ export const router = createBrowserRouter([
   {
     path: "/app",
     Component: MainApp,
+  },
+  {
+    path: "/admin",
+    Component: AdminDashboard,
   },
 ]);

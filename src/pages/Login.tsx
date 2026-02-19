@@ -1,62 +1,48 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { Link } from "react-router"; // Link 추가
 import { Heart } from "lucide-react";
-import { supabase } from "../lib/supabase"; // Supabase 클라이언트 추가
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card } from "../components/ui/card";
-import { Label } from "../components/ui/label"; // Label 추가
+import { supabase } from "../lib/supabase";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        navigate("/app");
+      }
+    };
+    checkSession();
+  }, [navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
-    
-    // 이메일 비밀번호 입력 확인
-    if (!email || !password) {
-        setError("이메일과 비밀번호를 모두 입력해주세요.");
-        setLoading(false);
-        return;
-    }
 
     try {
-        // 1. Supabase 로그인
-        const { data, error: signInError } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-        if (signInError) throw signInError;
+      if (error) throw error;
 
-        if (data.user) {
-            // 2. 프로필 존재 여부 확인
-            const { data: profile, error: profileError } = await supabase
-                .from('profiles')
-                .select('id')
-                .eq('id', data.user.id)
-                .maybeSingle(); // single() 대신 maybeSingle() 사용 (없을 수도 있으므로)
-
-            if (profile) {
-                // 프로필이 있으면 앱 메인으로
-                navigate("/app");
-            } else {
-                // 프로필이 없으면 설정 페이지로
-                navigate("/profile-setup");
-            }
-        }
+      if (data.user) {
+        navigate("/app");
+      }
     } catch (err: any) {
-        console.error("Login error:", err);
-        setError("이메일 또는 비밀번호가 올바르지 않습니다.");
+      setError(err.message || "로그인 중 오류가 발생했습니다.");
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
 
@@ -74,6 +60,12 @@ export default function Login() {
               당신의 이야기를 나누세요
             </p>
           </div>
+
+          {error && (
+            <div className="text-red-500 text-sm text-center">
+              {error}
+            </div>
+          )}
 
           {/* Login Form */}
           <form onSubmit={handleLogin} className="space-y-4">
@@ -106,12 +98,6 @@ export default function Login() {
                 className="bg-background"
               />
             </div>
-
-            {error && (
-              <p className="text-sm text-red-500 font-medium text-center">
-                {typeof error === 'string' ? error : "로그인 중 오류가 발생했습니다."}
-              </p>
-            )}
 
             <Button type="submit" className="w-full" size="lg" disabled={loading}>
               {loading ? "로그인 중..." : "로그인"}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User, Story } from "../types";
 import { Card } from "./ui/card";
 import { MyStoryCard } from "./MyStoryCard";
@@ -9,254 +9,318 @@ import { Label } from "./ui/label";
 import { Pencil } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
-import { getRemainingDays } from "../utils/time";
+import { Switch } from "./ui/switch";
 
 interface ProfileProps {
   user: User;
   stories: Story[];
   onUpdateProfile: (nickname: string, ageGroup: string, occupation: string) => void;
+  onUpdateVisibility?: (field: 'ageGroup' | 'city' | 'occupation', value: boolean) => void;
   fontSize?: number;
   fontWeight?: "normal" | "bold";
   onEdit?: (story: Story) => void;
   onDelete?: (storyId: string) => void;
 }
 
-export function Profile({ user, stories, onUpdateProfile, fontSize = 16, fontWeight = "normal", onEdit, onDelete }: ProfileProps) {
+export function Profile({ 
+  user, 
+  stories, 
+  onUpdateProfile, 
+  onUpdateVisibility = () => {}, 
+  fontSize = 16, 
+  fontWeight = "normal", 
+  onEdit, 
+  onDelete 
+}: ProfileProps) {
   const userStories = stories.filter((story) => story.userId === user.id);
   const [open, setOpen] = useState(false);
   const [nickname, setNickname] = useState(user.name);
+  // local state for ageGroup and occupation
   const [ageGroup, setAgeGroup] = useState(user.ageGroup);
   const [occupation, setOccupation] = useState(user.occupation);
+  
+  // local state for visibility settings (since we want to save them only when "Save" is clicked)
+  const [showAgeGroup, setShowAgeGroup] = useState(user.showAgeGroup ?? true);
+  const [showCity, setShowCity] = useState(user.showCity ?? true);
+  const [showOccupation, setShowOccupation] = useState(user.showOccupation ?? true);
+
   const [feedTypeFilter, setFeedTypeFilter] = useState<"all" | "worry" | "grateful">("all");
   const [sortBy, setSortBy] = useState<"latest" | "empathy">("latest");
+  
+  // Sync local state with user prop when it changes (e.g. on initial load or external update)
+  useEffect(() => {
+    setNickname(user.name);
+    setAgeGroup(user.ageGroup);
+    setOccupation(user.occupation);
+    setShowAgeGroup(user.showAgeGroup ?? true);
+    setShowCity(user.showCity ?? true);
+    setShowOccupation(user.showOccupation ?? true);
+  }, [user]);
 
-  const nicknameDaysLeft = getRemainingDays(user.lastNicknameUpdated, 90);
-  const ageGroupDaysLeft = getRemainingDays(user.lastAgeGroupUpdated, 300);
-  const occupationDaysLeft = getRemainingDays(user.lastOccupationUpdated, 180);
+  const nicknameChangeCount = user.nicknameChangeCount || 0;
+  const canChangeNickname = nicknameChangeCount < 2;
   
   const handleSave = () => {
-    if (nickname.trim() && ageGroup && occupation) {
-      onUpdateProfile(nickname.trim(), ageGroup, occupation);
+    if (nickname.trim() && occupation) {
+      // Update profile data
+      onUpdateProfile(nickname, ageGroup, occupation);
+      
+      // Update visibility settings
+      if (onUpdateVisibility) {
+        if (showAgeGroup !== user.showAgeGroup) onUpdateVisibility('ageGroup', showAgeGroup);
+        if (showCity !== user.showCity) onUpdateVisibility('city', showCity);
+        if (showOccupation !== user.showOccupation) onUpdateVisibility('occupation', showOccupation);
+      }
+      
       setOpen(false);
     }
   };
 
-  // 피드 타입별 필터링
-  const filteredStories = feedTypeFilter === "all" 
-    ? userStories 
-    : userStories.filter((story) => story.feedType === feedTypeFilter);
+  const filteredStories = userStories
+    .filter(story => feedTypeFilter === "all" || story.feedType === feedTypeFilter)
+    .sort((a, b) => {
+      if (sortBy === "latest") {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+      return (b.empathyCount || 0) - (a.empathyCount || 0);
+    });
 
-  // 정렬
-  const sortedStories = [...filteredStories].sort((a, b) => {
-    if (sortBy === "latest") {
-      return b.createdAt.getTime() - a.createdAt.getTime();
-    } else {
-      return b.empathyCount - a.empathyCount;
-    }
-  });
-  
   return (
     <div className="space-y-6">
-      <Card className="p-6 bg-[#ede8dc] border-0">
-        <div className="flex items-start gap-4">
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <h2 className="text-2xl">{user.name}</h2>
-              <Dialog open={open} onOpenChange={setOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="ghost" size="sm" className="gap-2">
-                    <Pencil className="h-4 w-4" />
-                    편집
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-md bg-[#f5f3ed] border-[#e8e6e0]">
-                  <DialogHeader>
-                    <DialogTitle>프로필 편집</DialogTitle>
-                    <DialogDescription>
-                      닉네임, 나이, 직업을 수정할 수 있습니다.
-                    </DialogDescription>
-                  </DialogHeader>
-                  
-                  <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="nickname">닉네임</Label>
-                        <span className={`text-xs ${nicknameDaysLeft > 0 ? "text-red-500 font-medium" : "text-muted-foreground"}`}>
-                          {nicknameDaysLeft > 0 ? `${nicknameDaysLeft}일 후 변경 가능` : "닉네임은 90일에 한번 변경 가능합니다."}
-                        </span>
-                      </div>
-                      <Input
-                        id="nickname"
-                        value={nickname}
-                        onChange={(e) => setNickname(e.target.value)}
-                        placeholder="닉네임을 입력하세요"
-                        maxLength={20}
-                        disabled={nicknameDaysLeft > 0}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        {nickname.length}/20자
-                      </p>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="ageGroup">연령대</Label>
-                        <span className={`text-xs ${ageGroupDaysLeft > 0 ? "text-red-500 font-medium" : "text-muted-foreground"}`}>
-                          {ageGroupDaysLeft > 0 ? `${ageGroupDaysLeft}일 후 변경 가능` : "300일에 한번 변경 가능합니다."}
-                        </span>
-                      </div>
-                      <Select
-                        value={ageGroup}
-                        onValueChange={setAgeGroup}
-                        disabled={ageGroupDaysLeft > 0}
-                      >
-                        <SelectTrigger id="ageGroup">
-                          <SelectValue placeholder="연령대를 선택하세요">
-                            {ageGroup}
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="10대">10대</SelectItem>
-                          <SelectItem value="20대">20대</SelectItem>
-                          <SelectItem value="30대">30대</SelectItem>
-                          <SelectItem value="40대">40대</SelectItem>
-                          <SelectItem value="50대">50대</SelectItem>
-                          <SelectItem value="60대 이상">60대 이상</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="occupation">직업</Label>
-                        <span className={`text-xs ${occupationDaysLeft > 0 ? "text-red-500 font-medium" : "text-muted-foreground"}`}>
-                          {occupationDaysLeft > 0 ? `${occupationDaysLeft}일 후 변경 가능` : "180일에 한번 변경 가능합니다."}
-                        </span>
-                      </div>
-                      <Select
-                        value={occupation}
-                        onValueChange={setOccupation}
-                        disabled={occupationDaysLeft > 0}
-                      >
-                        <SelectTrigger id="occupation">
-                          <SelectValue placeholder="직업을 선택하세요">
-                            {occupation}
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="학생">학생</SelectItem>
-                          <SelectItem value="프리랜서">프리랜서</SelectItem>
-                          <SelectItem value="직장인 (회사원/선생님/판사/의사)">직장인 (회사원/선생님/판사/의사)</SelectItem>
-                          <SelectItem value="공무원">공무원</SelectItem>
-                          <SelectItem value="자영업자">자영업자</SelectItem>
-                          <SelectItem value="군인">군인</SelectItem>
-                          <SelectItem value="기타">기타</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  
-                  <div className="flex gap-2 justify-end">
-                    <Button variant="outline" onClick={() => setOpen(false)}>
-                      취소
+      {/* Profile Header */}
+      <Card className="p-6 bg-[#f5f3ed] border-[#e8e6e0]">
+        <div className="flex justify-between items-start">
+          <div className="flex gap-4 items-center">
+            {/* Avatar Placeholder if needed, but we rely on simple text for now */}
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <h1 className="text-2xl font-bold">{user.name}</h1>
+                <Dialog open={open} onOpenChange={setOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-6 w-6">
+                      <Pencil className="h-4 w-4 text-muted-foreground" />
                     </Button>
-                    <Button onClick={handleSave} disabled={!nickname.trim() || !ageGroup || !occupation}>
-                      저장
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-md bg-[#f5f3ed]">
+                    <DialogHeader>
+                      <DialogTitle className="text-xl font-bold">프로필 편집</DialogTitle>
+                      <DialogDescription>
+                        닉네임과 직업 및 프로필에서의 정보 공개 여부를 수정 할 수 있습니다.
+                      </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-6 pt-4">
+                      {/* 닉네임 */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center text-sm">
+                            <Label htmlFor="nickname" className="font-semibold text-base">닉네임</Label>
+                            <span className="text-muted-foreground text-xs">닉네임은 2회 변경 가능합니다. ({2 - nicknameChangeCount}회 남음)</span>
+                        </div>
+                        <Input
+                          id="nickname"
+                          value={nickname}
+                          onChange={(e) => setNickname(e.target.value)}
+                          maxLength={20}
+                          className="bg-white border-[#e8e6e0]"
+                          disabled={!canChangeNickname}
+                        />
+                        <div className="text-xs text-muted-foreground">
+                            {nickname.length}/20자
+                        </div>
+                      </div>
+
+                      {/* 직업 */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center text-sm">
+                            <Label htmlFor="occupation" className="font-semibold text-base">직업</Label>
+                            <span className="text-muted-foreground text-xs">직업 변경은 180일에 한번 가능합니다.</span>
+                        </div>
+                         <Select value={occupation} onValueChange={setOccupation}>
+                            <SelectTrigger className="bg-white border-[#e8e6e0]">
+                                <SelectValue placeholder="직업 선택" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="학생">학생</SelectItem>
+                                <SelectItem value="프리랜서">프리랜서</SelectItem>
+                                <SelectItem value="직장인">직장인</SelectItem>
+                                <SelectItem value="공무원">공무원</SelectItem>
+                                <SelectItem value="자영업자">자영업자</SelectItem>
+                                <SelectItem value="군인">군인</SelectItem>
+                                <SelectItem value="기타">기타</SelectItem>
+                            </SelectContent>
+                         </Select>
+                      </div>
+
+                      {/* 공개 여부 설정 */}
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label className="text-sm font-medium">연령대 공개 여부</Label>
+                            <div className="flex w-full gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    style={{
+                                        backgroundColor: showAgeGroup ? "#0c0c14" : "transparent",
+                                        color: showAgeGroup ? "white" : "#0c0c14",
+                                        borderColor: "#e8e6e0"
+                                    }}
+                                    className="flex-1 hover:opacity-90"
+                                    onClick={() => setShowAgeGroup(true)}
+                                >
+                                    공개
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    style={{
+                                        backgroundColor: !showAgeGroup ? "#0c0c14" : "transparent",
+                                        color: !showAgeGroup ? "white" : "#0c0c14",
+                                        borderColor: "#e8e6e0"
+                                    }}
+                                    className="flex-1 hover:opacity-90"
+                                    onClick={() => setShowAgeGroup(false)}
+                                >
+                                    비공개
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label className="text-sm font-medium">지역 공개 여부</Label>
+                            <div className="flex w-full gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    style={{
+                                        backgroundColor: showCity ? "#0c0c14" : "transparent",
+                                        color: showCity ? "white" : "#0c0c14",
+                                        borderColor: "#e8e6e0"
+                                    }}
+                                    className="flex-1 hover:opacity-90"
+                                    onClick={() => setShowCity(true)}
+                                >
+                                    공개
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    style={{
+                                        backgroundColor: !showCity ? "#0c0c14" : "transparent",
+                                        color: !showCity ? "white" : "#0c0c14",
+                                        borderColor: "#e8e6e0"
+                                    }}
+                                    className="flex-1 hover:opacity-90"
+                                    onClick={() => setShowCity(false)}
+                                >
+                                    비공개
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label className="text-sm font-medium">직업 공개 여부</Label>
+                            <div className="flex w-full gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    style={{
+                                        backgroundColor: showOccupation ? "#0c0c14" : "transparent",
+                                        color: showOccupation ? "white" : "#0c0c14",
+                                        borderColor: "#e8e6e0"
+                                    }}
+                                    className="flex-1 hover:opacity-90"
+                                    onClick={() => setShowOccupation(true)}
+                                >
+                                    공개
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    style={{
+                                        backgroundColor: !showOccupation ? "#0c0c14" : "transparent",
+                                        color: !showOccupation ? "white" : "#0c0c14",
+                                        borderColor: "#e8e6e0"
+                                    }}
+                                    className="flex-1 hover:opacity-90"
+                                    onClick={() => setShowOccupation(false)}
+                                >
+                                    비공개
+                                </Button>
+                            </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2 mt-4 pt-4">
+                      <Button variant="outline" onClick={() => setOpen(false)} className="bg-transparent border-transparent hover:bg-[#e8e6e0]">취소</Button>
+                      <Button onClick={handleSave} style={{ backgroundColor: "#0c0c14", color: "white" }} className="px-6 hover:opacity-90">저장하기</Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+              <p className="text-muted-foreground">
+                {user.showCity ? user.city : "비공개"} · {user.showAgeGroup ? user.ageGroup : "비공개"} · {user.showOccupation ? user.occupation : "비공개"}
+              </p>
             </div>
-            <p className="text-muted-foreground mt-1">
-              {user.city} · {user.ageGroup} {user.occupation}
-            </p>
           </div>
         </div>
+
+        {/* Visibility Settings - quick toggles inside Profile view for convenience? Or keep in Settings tab?
+            The screenshot showed "Settings" tab with "Profile Info" section. 
+            So we don't necessarily need toggles here, but the user interface might expect them. 
+            Let's stick to the minimal redesign: Just show the data.
+            Wait, the attachment shows "Settings" page with toggles.
+            Previously MainApp tab 'settings' renders <Settings /> component.
+            This is <Profile /> component rendered in 'profile' tab.
+        */}
       </Card>
-      
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-medium">내가 쓴 글</h3>
-          <Select value={sortBy} onValueChange={(value: "latest" | "empathy") => setSortBy(value)}>
-            <SelectTrigger className="w-[120px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="latest">최신순</SelectItem>
-              <SelectItem value="empathy">공감순</SelectItem>
-            </SelectContent>
-          </Select>
+
+      {/* Stories Tabs */}
+      <Tabs defaultValue="all" className="w-full">
+         <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">내가 쓴 글 ({userStories.length})</h2>
+            <div className="flex items-center gap-2">
+                 <Select value={feedTypeFilter} onValueChange={(v: any) => setFeedTypeFilter(v)}>
+                    <SelectTrigger className="w-[100px] h-8 text-xs">
+                        <SelectValue placeholder="전체" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">전체</SelectItem>
+                        <SelectItem value="worry">걱정</SelectItem>
+                        <SelectItem value="grateful">감사</SelectItem>
+                    </SelectContent>
+                 </Select>
+                 <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
+                    <SelectTrigger className="w-[100px] h-8 text-xs">
+                        <SelectValue placeholder="최신순" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="latest">최신순</SelectItem>
+                        <SelectItem value="empathy">공감순</SelectItem>
+                    </SelectContent>
+                 </Select>
+            </div>
+         </div>
+        
+        <div className="space-y-4">
+          {filteredStories.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground bg-muted/20 rounded-lg">
+              <p>작성한 이야기가 없습니다.</p>
+            </div>
+          ) : (
+            filteredStories.map((story) => (
+              <MyStoryCard 
+                key={story.id} 
+                story={story} 
+                fontSize={fontSize} 
+                fontWeight={fontWeight}
+                onEdit={onEdit} 
+                onDelete={onDelete} 
+              />
+            ))
+          )}
         </div>
-
-        {userStories.length === 0 ? (
-          <Card className="p-8 text-center text-muted-foreground bg-[#f5f3ed] border-[#e8e6e0]">
-            <p>아직 공유한 이야기가 없습니다.</p>
-          </Card>
-        ) : (
-          <Tabs value={feedTypeFilter} onValueChange={(value: any) => setFeedTypeFilter(value)} className="space-y-4">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="all">전체</TabsTrigger>
-              <TabsTrigger value="worry">😢 걱정과 불안</TabsTrigger>
-              <TabsTrigger value="grateful">💛 감사와 따뜻함</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="all" className="space-y-4">
-              {sortedStories.length === 0 ? (
-                <Card className="p-8 text-center text-muted-foreground bg-[#f5f3ed] border-[#e8e6e0]">
-                  <p>아직 공유한 이야기가 없습니다.</p>
-                </Card>
-              ) : (
-                sortedStories.map((story) => (
-                  <MyStoryCard
-                    key={story.id}
-                    story={story}
-                    fontSize={fontSize}
-                    fontWeight={fontWeight}
-                    onEdit={onEdit}
-                    onDelete={onDelete}
-                  />
-                ))
-              )}
-            </TabsContent>
-
-            <TabsContent value="worry" className="space-y-4">
-              {sortedStories.length === 0 ? (
-                <Card className="p-8 text-center text-muted-foreground bg-[#f5f3ed] border-[#e8e6e0]">
-                  <p>아직 공유한 걱정과 불안 이야기가 없습니다.</p>
-                </Card>
-              ) : (
-                sortedStories.map((story) => (
-                  <MyStoryCard
-                    key={story.id}
-                    story={story}
-                    fontSize={fontSize}
-                    fontWeight={fontWeight}
-                    onEdit={onEdit}
-                    onDelete={onDelete}
-                  />
-                ))
-              )}
-            </TabsContent>
-
-            <TabsContent value="grateful" className="space-y-4">
-              {sortedStories.length === 0 ? (
-                <Card className="p-8 text-center text-muted-foreground bg-[#f5f3ed] border-[#e8e6e0]">
-                  <p>아직 공유한 감사와 따뜻함 이야기가 없습니다.</p>
-                </Card>
-              ) : (
-                sortedStories.map((story) => (
-                  <MyStoryCard
-                    key={story.id}
-                    story={story}
-                    fontSize={fontSize}
-                    fontWeight={fontWeight}
-                    onEdit={onEdit}
-                    onDelete={onDelete}
-                  />
-                ))
-              )}
-            </TabsContent>
-          </Tabs>
-        )}
-      </div>
+      </Tabs>
     </div>
   );
 }

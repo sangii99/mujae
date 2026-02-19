@@ -17,9 +17,16 @@ interface FeedProps {
   onEdit?: (story: Story) => void;
   onDelete?: (storyId: string) => void;
   onReport?: (storyId: string, reason: string, details?: string) => void;
+  onHide?: (storyId: string) => void;
+  onUnhide?: (storyId: string) => void;
+  onBlockUser?: (userId: string) => void;
+  onUnblockUser?: (userId: string) => void;
+  onReportUser?: (userId: string, userName: string, reason: string, details?: string) => void;
+  hiddenStoryIds?: string[];
+  blockedUserIds?: string[];
 }
 
-export function Feed({ stories, onEmpathize, onSendSticker, currentUserId, currentUserStickerCount, fontSize = 16, fontWeight = "normal", onStickerPickerOpenChange, fullScreenMode = false, onEdit, onDelete, onReport }: FeedProps) {
+export function Feed({ stories, onEmpathize, onSendSticker, currentUserId, currentUserStickerCount, fontSize = 16, fontWeight = "normal", onStickerPickerOpenChange, fullScreenMode = false, onEdit, onDelete, onReport, onHide, onUnhide, onBlockUser, onUnblockUser, onReportUser, hiddenStoryIds = [], blockedUserIds = [] }: FeedProps) {
   if (stories.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
@@ -37,6 +44,12 @@ export function Feed({ stories, onEmpathize, onSendSticker, currentUserId, curre
         currentUserId={currentUserId}
         fontSize={fontSize}
         fontWeight={fontWeight}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        onReport={onReport}
+        onHide={onHide}
+        onBlockUser={onBlockUser}
+        onReportUser={onReportUser}
       />
     );
   }
@@ -45,9 +58,8 @@ export function Feed({ stories, onEmpathize, onSendSticker, currentUserId, curre
   return (
     <div className="space-y-4">
       {stories.map((story, index) => (
-        <>
+        <div key={story.id}>
           <StoryCard
-            key={story.id}
             story={story}
             onEmpathize={onEmpathize}
             onSendSticker={onSendSticker}
@@ -59,6 +71,13 @@ export function Feed({ stories, onEmpathize, onSendSticker, currentUserId, curre
             onEdit={onEdit}
             onDelete={onDelete}
             onReport={onReport}
+            onHide={onHide}
+            onUnhide={onUnhide}
+            onBlockUser={onBlockUser}
+            onUnblockUser={onUnblockUser}
+            onReportUser={onReportUser}
+            hiddenStoryIds={hiddenStoryIds}
+            blockedUserIds={blockedUserIds}
           />
           {(index + 1) % 8 === 0 && index < stories.length - 1 && (
             <EncouragementCard
@@ -66,7 +85,7 @@ export function Feed({ stories, onEmpathize, onSendSticker, currentUserId, curre
               message={encouragementMessages[Math.floor((index + 1) / 8 - 1) % encouragementMessages.length].text}
             />
           )}
-        </>
+        </div>
       ))}
     </div>
   );

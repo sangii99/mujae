@@ -6,12 +6,12 @@ export interface User {
   city: string;
   ageGroup: string;
   occupation: string;
-  gender?: string; // 추가
-  isGenderPublic?: boolean; // 추가
   stickerCount: number;
-  lastNicknameUpdated?: Date;
-  lastAgeGroupUpdated?: Date;
-  lastOccupationUpdated?: Date;
+  birthDate?: string; // 생년월일 (YYYY-MM-DD 형식)
+  nicknameChangeCount?: number; // 닉네임 변경 횟수
+  showAgeGroup?: boolean; // 연령대 공개 여부
+  showCity?: boolean; // 지역 공개 여부
+  showOccupation?: boolean; // 직업 공개 여부
 }
 
 export interface Story {
@@ -22,7 +22,9 @@ export interface Story {
   userCity: string;
   userAgeGroup: string;
   userOccupation: string;
-  userGender?: string; // Opt-in gender display
+  showCity?: boolean;
+  showAgeGroup?: boolean;
+  showOccupation?: boolean;
   feedType: "worry" | "grateful";
   content: string;
   categories: string[];
@@ -45,6 +47,24 @@ export interface Notification {
   stickerMessage?: string;
   createdAt: Date;
   read: boolean;
+}
+
+export interface Report {
+  id: string;
+  reportType: "story" | "user";
+  reportedItemId: string; // storyId or userId
+  reportedBy: string; // userId who reported
+  reportedByName: string;
+  reason: string;
+  details?: string;
+  createdAt: Date;
+  status: "pending" | "resolved" | "dismissed";
+  // For story reports
+  storyContent?: string;
+  storyAuthorId?: string;
+  storyAuthorName?: string;
+  // For user reports
+  reportedUserName?: string;
 }
 
 export const AVAILABLE_CATEGORIES = [
@@ -72,7 +92,7 @@ export const AVAILABLE_CATEGORIES = [
 export const SUPPORT_STICKERS = [
   { emoji: "💪", message: "힘내세요!" },
   { emoji: "🌟", message: "응원해요!" },
-  { emoji: "🤝", message: "함께 있어요" },
   { emoji: "💚", message: "괜찮아요" },
+  { emoji: "🤝", message: "함께 있어요" },
   { emoji: "👏", message: "잘하고 있어요!" },
 ];

@@ -18,7 +18,7 @@ export function StickerPicker({ onSendSticker, stickerCount, disabled, onOpenCha
   const [showTooltip, setShowTooltip] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
+  const buttonRef = useRef<HTMLDivElement>(null);
 
   const handleSupportClick = () => {
     if (disabled || stickerCount === 0 || stickerSent) return;

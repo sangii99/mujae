@@ -1,76 +1,64 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { Heart, ArrowLeft } from "lucide-react";
-import { supabase } from "../lib/supabase"; // Supabase 클라이언트 추가
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card } from "../components/ui/card";
 import { Label } from "../components/ui/label";
+import { supabase } from "../lib/supabase";
 
 export default function SignUp() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [nickname, setNickname] = useState("");
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        navigate("/app");
+      }
+    };
+    checkSession();
+  }, [navigate]);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    setLoading(true);
 
-    // 유효성 검사
-    if (!email || !password || !confirmPassword || !nickname) {
+    if (!email || !password || !confirmPassword) {
       setError("모든 필드를 입력해주세요.");
-      setLoading(false);
       return;
     }
 
     if (password !== confirmPassword) {
       setError("비밀번호가 일치하지 않습니다.");
-      setLoading(false);
       return;
     }
 
     if (password.length < 6) {
       setError("비밀번호는 최소 6자 이상이어야 합니다.");
-      setLoading(false);
       return;
     }
 
-    // 간단한 이메일 유효성 검사
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setError("올바른 이메일 형식이 아닙니다.");
-      setLoading(false);
-      return;
-    }
+    setLoading(true);
 
     try {
-      // 1. Supabase 회원가입 요청
-      const { data, error: signUpError } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          data: {
-            nickname, // 메타데이터에 닉네임 저장
-          },
-        },
       });
 
-      if (signUpError) {
-        throw signUpError;
-      }
-
+      if (error) throw error;
+      
       if (data.user) {
-        // 2. 회원가입 성공 시 프로필 설정 페이지로 이동
-        // (자동 로그인이 되었으므로 세션이 유지된 상태로 이동)
+        alert("회원가입이 완료되었습니다. 이메일 인증을 확인해주세요 (혹은 바로 로그인이 되었을 수 있습니다).");
         navigate("/profile-setup");
       }
     } catch (err: any) {
-      console.error("Signup error:", err);
       setError(err.message || "회원가입 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
@@ -105,21 +93,6 @@ export default function SignUp() {
 
           {/* Sign Up Form */}
           <form onSubmit={handleSignUp} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="nickname">닉네임</Label>
-              <Input
-                id="nickname"
-                type="text"
-                placeholder="사용할 닉네임을 입력하세요"
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-                maxLength={8}
-                required
-                className="bg-background"
-              />
-              <p className="text-xs text-muted-foreground">최대 8자까지 입력 가능합니다</p>
-            </div>
-
             <div className="space-y-2">
               <Label htmlFor="email">이메일</Label>
               <Input
@@ -161,12 +134,12 @@ export default function SignUp() {
 
             {error && (
               <div className="text-sm text-red-500 text-center bg-red-50 p-2 rounded">
-                {typeof error === 'string' ? error : "회원가입 중 오류가 발생했습니다."}
+                {error}
               </div>
             )}
 
-            <Button type="submit" className="w-full" size="lg" disabled={loading}>
-              {loading ? "가입 중..." : "회원가입"}
+            <Button type="submit" className="w-full" size="lg">
+              회원가입
             </Button>
           </form>
 

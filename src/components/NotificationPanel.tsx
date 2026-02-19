@@ -4,7 +4,7 @@ import { Badge } from "./ui/badge";
 import { Notification } from "../types";
 import { ScrollArea } from "./ui/scroll-area";
 import empathyIcon from "../assets/1cf87df5e848e0368281bc2ddabccc0ba1ece188.png";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
 interface NotificationPanelProps {
@@ -18,6 +18,9 @@ export function NotificationPanel({ notifications, onMarkAsRead, onClearAll, onO
   const [isOpen, setIsOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const unreadCount = notifications.filter((n) => !n.read).length;
+  
+  const panelRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   const handleToggle = () => {
     if (isOpen) {
@@ -31,7 +34,7 @@ export function NotificationPanel({ notifications, onMarkAsRead, onClearAll, onO
     } else {
       // 열 때
       setIsOpen(true);
-      // 알림창을 열면 모든 알림을 읽음 처리
+      // 알림창을 열면 ��든 알림을 읽음 처리
       notifications.forEach((notification) => {
         if (!notification.read) {
           onMarkAsRead(notification.id);
@@ -40,6 +43,29 @@ export function NotificationPanel({ notifications, onMarkAsRead, onClearAll, onO
       onOpenChange?.(true);
     }
   };
+  
+  // Handle outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (isOpen && !isClosing) {
+        const target = event.target as Node;
+        // Check if click is outside both the panel and the button
+        if (
+          panelRef.current &&
+          !panelRef.current.contains(target) &&
+          buttonRef.current &&
+          !buttonRef.current.contains(target)
+        ) {
+          handleToggle();
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen, isClosing]);
 
   const getTimeAgo = (date: Date) => {
     const now = Date.now();
@@ -51,7 +77,7 @@ export function NotificationPanel({ notifications, onMarkAsRead, onClearAll, onO
     const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
     
     if (minutes < 1) return "방금 전";
-    if (hours < 1) return `${minutes}분 전`;
+    if (minutes < 60) return `${minutes}분 전`;
     if (hours < 24) return `${hours}시간 전`;
     if (days <= 7) return `${days}일 전`;
     
@@ -79,6 +105,7 @@ export function NotificationPanel({ notifications, onMarkAsRead, onClearAll, onO
         size="icon" 
         className="relative"
         onClick={handleToggle}
+        ref={buttonRef}
       >
         {isOpen ? (
           <X className="h-5 w-5" />
@@ -113,6 +140,7 @@ export function NotificationPanel({ notifications, onMarkAsRead, onClearAll, onO
               borderLeft: '1px solid rgba(255, 255, 255, 0.3)',
               boxShadow: '0 4px 6px rgba(0, 0, 0, 0.02)',
             }}
+            ref={panelRef}
           >
             <div className="flex-shrink-0 px-6 py-4">
               <h2 className="text-lg font-semibold">알림</h2>

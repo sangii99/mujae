@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
+import { supabase } from "../lib/supabase";
 import { Heart, Edit3, Settings as SettingsIcon, Sparkles } from "lucide-react";
 import { Feed } from "../components/Feed";
 import { CreateStory } from "../components/CreateStory";
 import empathyIcon from "../assets/1cf87df5e848e0368281bc2ddabccc0ba1ece188.png";
-import { Story, User, Notification } from "../types";
-import { mockStories, currentUser } from "../utils/mockData";
+import { Story, User, Notification, Report } from "../types";
 import { CategoryFilter } from "../components/CategoryFilter";
 import { NotificationPanel } from "../components/NotificationPanel";
 import { Profile } from "../components/Profile";
@@ -13,423 +13,330 @@ import { Settings } from "../components/Settings";
 import { Tabs, TabsContent } from "../components/ui/tabs";
 import { Button } from "../components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
-import { supabase } from "../lib/supabase";
+import { AnimatePresence, motion } from "motion/react";
+const defaultUser: User = {
+  id: "",
+  name: "로딩중...",
+  avatar: "",
+  bio: "",
+  city: "",
+  ageGroup: "",
+  occupation: "",
+  stickerCount: 0,
+};
 
 export default function MainApp() {
   const navigate = useNavigate();
   const [stories, setStories] = useState<Story[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState("worry");
-  const [currentUserData, setCurrentUserData] = useState<User>(currentUser);
+  const [currentUserData, setCurrentUserData] = useState<User>(defaultUser);
   const [createStoryOpen, setCreateStoryOpen] = useState(false);
   const [editingStory, setEditingStory] = useState<Story | null>(null);
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: "notif-sample-8",
-      type: "sticker",
-      fromUserId: "user-9",
-      fromUserName: "여름날씨",
-      fromUserAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop",
-      storyId: "story-5",
-      storyContent: "오늘 면접에서 떨어졌다는 연락을 받았다. 이번이 다섯 번째인데 자신감이 점점 떨어진다. 내가 뭘 잘못하고 있는 걸까. 계속 도전해야 할지 막막하다.",
-      stickerEmoji: "🌈",
-      stickerMessage: "힘내세요!",
-      createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2시간 전
-      read: false,
-    },
-    {
-      id: "notif-sample-7",
-      type: "empathy",
-      fromUserId: "user-8",
-      fromUserName: "달빛",
-      fromUserAvatar: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=100&h=100&fit=crop",
-      storyId: "story-4",
-      storyContent: "부모님께 커밍아웃을 해야 할지 고민이다. 나를 있는 그대로 보여드리고 싶지만 실망하실까봐 두렵다. 언제쯤 용기를 낼 수 있을까.",
-      createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000), // 3시간 전
-      read: false,
-    },
-    {
-      id: "notif-sample-6",
-      type: "sticker",
-      fromUserId: "user-7",
-      fromUserName: "은하수",
-      fromUserAvatar: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=100&h=100&fit=crop",
-      storyId: "story-3",
-      storyContent: "연인과 헤어진 지 한 달이 지났는데 아직도 마음이 아프다. 시간이 약이라던데 언제쯤 괜찮아질까. 혼자 있는 시간이 너무 외롭다.",
-      stickerEmoji: "🌸",
-      stickerMessage: "괜찮아질 거예요",
-      createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000), // 5시간 전
-      read: false,
-    },
-    {
-      id: "notif-sample-5",
-      type: "empathy",
-      fromUserId: "user-6",
-      fromUserName: "구름",
-      fromUserAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop",
-      storyId: "story-2",
-      storyContent: "회사에서 승진 기회를 놓쳤다. 동기는 올라가는데 나만 제자리인 것 같아서 자존감이 바닥이다. 내가 부족한 건지 운이 없는 건지 모르겠다.",
-      createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1일 전
-      read: false,
-    },
-    {
-      id: "notif-sample-4",
-      type: "sticker",
-      fromUserId: "user-5",
-      fromUserName: "별똥별",
-      fromUserAvatar: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&h=100&fit=crop",
-      storyId: "story-1",
-      storyContent: "가족들과의 관계가 점점 멀어지는 것 같아서 슬프다. 명절에도 대화가 없고 각자 핸드폰만 본다. 예전처럼 다시 가까워질 수 있을까.",
-      stickerEmoji: "💕",
-      stickerMessage: "응원해요!",
-      createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3일 전
-      read: false,
-    },
-    {
-      id: "notif-sample-3",
-      type: "empathy",
-      fromUserId: "user-4",
-      fromUserName: "새벽",
-      fromUserAvatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
-      storyId: "story-0",
-      storyContent: "요즘 새로운 프로젝트를 맡게 되면서 부담감이 크다. 팀원들의 기대에 부응할 수 있을지, 제대로 해낼 수 있을지 걱정된다. 하지만 최선을 다해보려고 한다.",
-      createdAt: new Date(Date.now() - 5 * 60 * 1000),
-      read: false,
-    },
-    {
-      id: "notif-sample-2",
-      type: "sticker",
-      fromUserId: "user-2",
-      fromUserName: "희망의빛",
-      fromUserAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop",
-      storyId: "story-0",
-      storyContent: "요즘 새로운 프로젝트를 맡게 되면서 부담감이 크다. 팀원들의 기대에 부응할 수 있을지, 제대로 해낼 수 있을지 걱정된다. 하지만 최선을 다해보려고 한다.",
-      stickerEmoji: "💪",
-      stickerMessage: "응원합니다!",
-      createdAt: new Date(Date.now() - 10 * 60 * 1000),
-      read: false,
-    },
-    {
-      id: "notif-sample-1",
-      type: "sticker",
-      fromUserId: "user-3",
-      fromUserName: "바다",
-      fromUserAvatar: "https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=100&h=100&fit=crop",
-      storyId: "story-0",
-      storyContent: "요즘 새로운 프로젝트를 맡게 되면서 부담감이 크다. 팀원들의 기대에 부응할 수 있을지, 제대로 해낼 수 있을지 걱정된다. 하지만 최선을 다해보려고 한다.",
-      stickerEmoji: "✨",
-      stickerMessage: "할 수 있어요!",
-      createdAt: new Date(Date.now() - 30 * 60 * 1000),
-      read: false,
-    },
-  ]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  
   const [fontSize, setFontSize] = useState(16);
   const [fontWeight, setFontWeight] = useState<"normal" | "bold">("normal");
   const [isStickerPickerOpen, setIsStickerPickerOpen] = useState(false);
+  const [hiddenStoryIds, setHiddenStoryIds] = useState<string[]>([]);
+  const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // 프로필 확인 및 데이터 로드
+  // 1. Fetch User Data
   useEffect(() => {
     const fetchUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
-      if (session) {
-        // Supabase에서 프로필 가져오기
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
+      if (!session) {
+        navigate("/");
+        return;
+      }
 
-        if (profile) {
-          setCurrentUserData(prev => ({
-            ...prev,
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (profile) {
+        // 필수 정보(닉네임)만 있으면 접속 허용. birth_date 체크 제거
+        const hasRequiredProfile = !!profile.nickname;
+
+        if (hasRequiredProfile) {
+          setCurrentUserData({
             id: session.user.id,
-            name: profile.nickname || prev.name,
-            ageGroup: profile.age_group || prev.ageGroup,
-            city: profile.city || prev.city, // region -> city 변경
-            occupation: profile.occupation || prev.occupation,
-            gender: profile.gender || prev.gender, // gender 추가
-            isGenderPublic: profile.is_gender_public || prev.isGenderPublic, // 성별 공개 여부 추가
-            lastNicknameUpdated: profile.last_nickname_updated ? new Date(profile.last_nickname_updated) : undefined,
-            lastAgeGroupUpdated: profile.last_age_group_updated ? new Date(profile.last_age_group_updated) : undefined,
-            lastOccupationUpdated: profile.last_occupation_updated ? new Date(profile.last_occupation_updated) : undefined,
-          }));
+            name: profile.nickname || "익명",
+            ageGroup: profile.age_group || "",
+            // 지역 정보 깨짐 방지: DB에 'NULL'이나 이상한 값이 있을 경우 대비
+            city: profile.city || "", 
+            occupation: profile.occupation || "",
+            stickerCount: 5, 
+            avatar: "", 
+            bio: "",
+            birthDate: profile.birth_date,
+            nicknameChangeCount: profile.nickname_change_count || 0,
+            showAgeGroup: profile.is_age_group_public !== false,
+            showCity: profile.is_city_public !== false,
+            showOccupation: profile.is_occupation_public !== false,
+          });
+
+          fetchStories(session.user.id);
         } else {
-             // 프로필이 없으면 생성 페이지로 (또는 로컬 스토리지 체크)
-             const userProfile = localStorage.getItem("userProfile");
-             if (!userProfile) navigate("/profile-setup");
+          // 닉네임조차 없다면 가입이 덜 된 것으로 판단
+          navigate("/profile-setup");
         }
       } else {
-         // 세션 없으면 로컬 스토리지 체크 (Figma 데모용 호환성 유지)
-         const userProfile = localStorage.getItem("userProfile");
-         if (userProfile) {
-           const profile = JSON.parse(userProfile);
-           setCurrentUserData(prev => ({
-             ...prev,
-             ageGroup: profile.ageGroup,
-             city: profile.city,
-             occupation: profile.occupation,
-           }));
-         } else {
-           navigate("/login"); 
-         }
+        navigate("/profile-setup");
       }
     };
     fetchUser();
   }, [navigate]);
 
-  const fetchStories = async () => {
-    // 1. 스토리 데이터 먼저 가져오기
-    const { data: storiesData, error: storiesError } = await supabase
-      .from('stories')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (storiesError) {
-      console.error("Error fetching stories:", storiesError);
-      return;
-    }
-
-    if (!storiesData) return;
-
-    // 2. 관련된 사용자 ID 추출
-    const userIds = Array.from(new Set(storiesData.map((s) => s.user_id).filter(Boolean)));
-
-    // 3. 사용자 프로필 정보 한 번에 가져오기
-    const { data: profilesData } = await supabase
-      .from('profiles')
-      .select('id, nickname, age_group, city, occupation, is_gender_public') // region -> city, is_gender_public 추가
-      .in('id', userIds);
-
-    // 4. 프로필 데이터 매핑을 위한 맵(Map) 생성
-    const profileMap = new Map();
-    if (profilesData) {
-      profilesData.forEach((profile) => {
-        profileMap.set(profile.id, profile);
-      });
-    }
-
-    // 5. 스토리와 프로필 합치기
-    const mappedStories: Story[] = storiesData.map((post: any) => {
-      const profile = profileMap.get(post.user_id) || {};
-
-      return {
-        id: post.id,
-        userId: post.user_id,
-        userName: profile.nickname || "익명",
-        userAvatar: "https://github.com/shadcn.png", // 기본 아바타
-        userCity: profile.city || "",
-        userAgeGroup: profile.age_group || "",
-        userOccupation: profile.occupation || "",
-        userGender: profile.is_gender_public ? profile.gender : undefined, // 성별 공개 여부에 따라 표시
-        feedType: post.feed_type as "worry" | "grateful",
-        content: post.content,
-        categories: post.categories || [],
-        empathyCount: post.empathy_count || 0,
-        empathizedBy: post.empathized_by || [], // 필요한 경우 배열 파싱 로직 추가
-        stickers: [], // stickers 컬럼이 없거나 DB 구조가 다르면 제외
-        createdAt: new Date(post.created_at),
-        isPublic: true,
-      };
-    });
-    setStories(mappedStories);
-  };
-
-  useEffect(() => {
-    fetchStories();
-  }, []);
-
-  const handleCreateStory = async (content: string, categories: string[], feedType: "worry" | "grateful") => {
+  // 2. Fetch Stories
+  const fetchStories = async (currentUserId: string = currentUserData.id) => {
     try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
+      setLoading(true);
+      // Fetch Stories with Profile info
+      const { data: storiesData, error } = await supabase
+        .from('stories')
+        .select(`
+          *, 
+          profiles:user_id (
+            nickname, 
+            age_group, 
+            city, 
+            occupation
+          )
+        `)
+        .order('created_at', { ascending: false });
 
-        const { data, error } = await supabase.from('stories').insert({ // posts -> stories 변경
-            user_id: session.user.id,
-            content,
-            categories,
-            feed_type: feedType,
-            empathy_count: 0,
-            empathized_by: [],
-            stickers: []
-        }).select().single();
+        if (error) {
+           console.error("Supabase Error:", error);
+           throw error;
+        }
 
-        if (error) throw error;
+        if (storiesData) {
+          console.log("Stories fetched:", storiesData.length);
+        }
+
+      if (storiesData) {
+        // Fetch Empathies (My Likes)
+        const storyIds = storiesData.map(s => s.id);
         
-        fetchStories();
-        setCreateStoryOpen(false);
-    } catch (e) {
-        console.error("Error creating story:", e);
-        const newStory: Story = {
-            id: `story-${Date.now()}`,
-            userId: currentUserData.id,
-            userName: currentUserData.name,
-            userAvatar: currentUserData.avatar,
-            userCity: currentUserData.city,
-            userAgeGroup: currentUserData.ageGroup,
-            userOccupation: currentUserData.occupation,
-            feedType,
-            content,
-            categories,
-            empathyCount: 0,
-            empathizedBy: [],
-            stickers: [],
-            createdAt: new Date(),
-            isPublic: true,
-        };
-        setStories([newStory, ...stories]);
-        setCreateStoryOpen(false);
+        const { data: myEmpathies } = await supabase
+          .from('story_empathies')
+          .select('story_id')
+          .eq('user_id', currentUserId);
+        
+        const myEmpathizedStoryIds = new Set((myEmpathies || []).map((e: any) => e.story_id));
+
+        // Fetch Stickers
+        const { data: stickersData } = await supabase
+          .from('story_stickers')
+          .select('*')
+          .in('story_id', storyIds);
+          
+        const stickersMap: Record<string, any[]> = {};
+        if (stickersData) {
+            stickersData.forEach(sticker => {
+            if (!stickersMap[sticker.story_id]) stickersMap[sticker.story_id] = [];
+            stickersMap[sticker.story_id].push(sticker);
+            });
+        }
+
+        // Map to Frontend Model
+        const mappedStories: Story[] = storiesData.map((item: any) => {
+          // Allow profiles to be an array (if one-to-many is inferred) or object (if many-to-one is inferred)
+          const rawProfile = item.profiles;
+          const profileData = Array.isArray(rawProfile) ? rawProfile[0] : rawProfile; 
+
+          // Visibility is determined by the *story snapshot* settings (stored in stories table)
+          const showAgeGroup = item.show_age_group !== false;
+          const showCity = item.show_city !== false;
+          const showOccupation = item.show_occupation !== false;
+          
+          return {
+            id: item.id,
+            userId: item.user_id,
+            userName: profileData?.nickname || "익명",
+            userAvatar: "", 
+            // If visibility is hidden, we set the string to "" or "비공개"
+            userCity: (showCity) ? (profileData?.city || "알 수 없음") : "비공개",
+            userAgeGroup: (showAgeGroup) ? (profileData?.age_group || "") : "비공개",
+            userOccupation: (showOccupation) ? (profileData?.occupation || "") : "비공개",
+            
+            // Pass the visibility flags explicitly so the UI can decide to hide the text completely
+            showCity,
+            showAgeGroup,
+            showOccupation,
+
+            feedType: item.feed_type as "worry" | "grateful",
+            content: item.content,
+            categories: item.categories || [],
+            empathyCount: item.empathy_count || 0, 
+            empathizedBy: myEmpathizedStoryIds.has(item.id) ? [currentUserId] : [],
+            stickers: stickersMap[item.id]?.map((s: any) => ({ userId: s.sender_id, message: s.message, emoji: s.emoji })) || [],
+            createdAt: new Date(item.created_at),
+            isPublic: item.is_public ?? true
+          };
+        });
+        setStories(mappedStories);
+      } else {
+        // If stories is null or empty
+        setStories([]);
+      }
+    } catch (err) {
+      console.error("Error fetching stories:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleEmpathize = (storyId: string) => {
-    setStories((prevStories) =>
-      prevStories.map((story) => {
-        if (story.id === storyId) {
-          const hasEmpathized = story.empathizedBy.includes(currentUserData.id);
-          
-          // 공감 추가 시 알림 생성 (자신의 글이 아닐 때)
-          if (!hasEmpathized && story.userId !== currentUserData.id) {
-            const newNotification: Notification = {
-              id: `notif-${Date.now()}`,
-              type: "empathy",
-              fromUserId: currentUserData.id,
-              fromUserName: currentUserData.name,
-              fromUserAvatar: currentUserData.avatar,
-              storyId: story.id,
-              storyContent: story.content,
-              createdAt: new Date(),
-              read: false,
-            };
-            setNotifications((prev) => [newNotification, ...prev]);
-          }
-          
-          return {
-            ...story,
-            empathyCount: hasEmpathized
-              ? story.empathyCount - 1
-              : story.empathyCount + 1,
-            empathizedBy: hasEmpathized
-              ? story.empathizedBy.filter((id) => id !== currentUserData.id)
-              : [...story.empathizedBy, currentUserData.id],
-          };
-        }
-        return story;
-      })
-    );
+  const handleCreateStory = async (content: string, categories: string[], feedType: "worry" | "grateful", isPublic: boolean = true) => {
+    try {
+      const { error } = await supabase
+        .from('stories')
+        .insert({
+          user_id: currentUserData.id,
+          content: content,
+          categories: categories,
+          feed_type: feedType,
+          is_public: isPublic,
+          empathy_count: 0,
+          sticker_count: 0,
+          // Snapshot current visibility settings
+          show_age_group: currentUserData.showAgeGroup,
+          show_city: currentUserData.showCity,
+          show_occupation: currentUserData.showOccupation
+        });
+
+      if (error) throw error;
+
+      fetchStories(currentUserData.id);
+      setCreateStoryOpen(false);
+      setToastMessage("이야기가 성공적으로 등록되었습니다.");
+      setTimeout(() => setToastMessage(null), 3000);
+    } catch (err) {
+      console.error("Error creating story:", err);
+      // More specific error message if possible, but keep it simple
+      setToastMessage("스토리 작성 중 오류가 발생했습니다.");
+      setTimeout(() => setToastMessage(null), 3000); 
+    }
   };
 
-  const handleSendSticker = (storyId: string, emoji: string, message: string) => {
-    // 스티 없으면 전송 불가
-    if (currentUserData.stickerCount === 0) return;
-    
-    const targetStory = stories.find((s) => s.id === storyId);
-    if (!targetStory) return;
-    
-    // 이미 이 스토리에 스티커를 보냈으면 전송 불가
-    const hasSentSticker = targetStory.stickers.some((s) => s.userId === currentUserData.id);
-    if (hasSentSticker) return;
-    
-    // 자기 글인지 확인 (자기 글에 보내면 다른 사람이 보낸 것으로 시뮬레이션)
-    const isOwnStory = targetStory.userId === currentUserData.id;
-    
-    // 응원 스티커 알림 생성
-    const newNotification: Notification = {
-      id: `notif-${Date.now()}`,
-      type: "sticker",
-      fromUserId: isOwnStory ? "anonymous" : currentUserData.id,
-      fromUserName: isOwnStory ? "익명의 친구" : currentUserData.name,
-      fromUserAvatar: isOwnStory ? "" : currentUserData.avatar,
-      storyId: targetStory.id,
-      storyContent: targetStory.content,
-      stickerEmoji: emoji,
-      stickerMessage: message,
-      createdAt: new Date(),
-      read: false,
-    };
-    setNotifications((prev) => [newNotification, ...prev]);
-    
-    // 스티커 전송
-    setStories((prevStories) =>
-      prevStories.map((story) => {
-        if (story.id === storyId) {
+  const handleEmpathize = async (storyId: string) => {
+    try {
+      const story = stories.find(s => s.id === storyId);
+      if (!story) return;
+
+      const isEmpathized = story.empathizedBy.includes(currentUserData.id);
+
+      // Optimistic UI Update
+      setStories(prev => prev.map(s => {
+         if (s.id === storyId) {
+           return {
+             ...s,
+             empathyCount: isEmpathized ? Math.max(0, s.empathyCount - 1) : s.empathyCount + 1,
+             empathizedBy: isEmpathized 
+               ? s.empathizedBy.filter(id => id !== currentUserData.id)
+               : [...s.empathizedBy, currentUserData.id]
+           };
+         }
+         return s;
+      }));
+
+      if (isEmpathized) {
+        // Un-empathize
+        await supabase.from('story_empathies').delete().match({ story_id: storyId, user_id: currentUserData.id });
+        // Assume trigger handles empathy_count or ignore for now, rely on refetch eventually
+      } else {
+        // Empathize
+        await supabase.from('story_empathies').insert({ story_id: storyId, user_id: currentUserData.id });
+      }
+    } catch (err) {
+      console.error("Error toggling empathy:", err);
+      fetchStories(currentUserData.id); // Revert on error
+    }
+  };
+
+  const handleSendSticker = async (storyId: string, emoji: string, message: string) => {
+    try {
+      // Optimistic Update? Keep it simple for now, just insert and refetch
+      const { error } = await supabase
+        .from('story_stickers')
+        .insert({
+          story_id: storyId,
+          sender_id: currentUserData.id,
+          emoji,
+          message
+        });
+
+      if (error) throw error;
+      
+      // Update Local State for UI feedback
+      setStories(prev => prev.map(s => {
+        if (s.id === storyId) {
           return {
-            ...story,
-            stickers: [...story.stickers, { userId: currentUserData.id, message, emoji }],
+            ...s,
+            stickers: [...s.stickers, { userId: currentUserData.id, emoji, message }]
           };
         }
-        return story;
-      })
-    );
-    
-    // 현재 사용자의 스티커 개수 업데이트
-    if (isOwnStory) {
-      // 자기 글에 보낼 때: 다른 사람이 보낸 것으로 시뮬레이션 (스티커 받기 = +1)
-      setCurrentUserData((prev) => ({
-        ...prev,
-        stickerCount: prev.stickerCount + 1,
+        return s;
       }));
-    } else {
-      // 다른 사람 글에 보낼 때: 스티커 보내기 (= -1)
-      setCurrentUserData((prev) => ({
-        ...prev,
-        stickerCount: prev.stickerCount - 1,
-      }));
+       setToastMessage("스티커를 보냈습니다!");
+       setTimeout(() => setToastMessage(null), 3000);
+      
+    } catch (err) {
+      console.error("Error sending sticker:", err);
+      setToastMessage("스티커 전송 실패");
     }
   };
 
   const handleUpdateProfile = async (nickname: string, ageGroup: string, occupation: string) => {
-    const updates: any = {};
-    const now = new Date();
-    
-    if (nickname !== currentUserData.name) {
-        updates.nickname = nickname;
-        updates.last_nickname_updated = now.toISOString();
-    }
-    if (ageGroup !== currentUserData.ageGroup) {
-        updates.age_group = ageGroup;
-        updates.last_age_group_updated = now.toISOString();
-    }
-    if (occupation !== currentUserData.occupation) {
-        updates.occupation = occupation;
-        updates.last_occupation_updated = now.toISOString();
-    }
+    try {
+        const { error } = await supabase
+            .from('profiles')
+            .update({ 
+                nickname, 
+                age_group: ageGroup, 
+                occupation,
+                updated_at: new Date()
+            })
+            .eq('id', currentUserData.id);
 
-    const updatedUser = {
-      ...currentUserData,
-      name: nickname,
-      ageGroup: ageGroup,
-      occupation: occupation,
-      lastNicknameUpdated: updates.last_nickname_updated ? new Date(updates.last_nickname_updated) : currentUserData.lastNicknameUpdated,
-      lastAgeGroupUpdated: updates.last_age_group_updated ? new Date(updates.last_age_group_updated) : currentUserData.lastAgeGroupUpdated,
-      lastOccupationUpdated: updates.last_occupation_updated ? new Date(updates.last_occupation_updated) : currentUserData.lastOccupationUpdated,
-    };
-    setCurrentUserData(updatedUser);
+        if (error) throw error;
 
-    if (Object.keys(updates).length > 0) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-             const { error } = await supabase
-                .from('profiles')
-                .update(updates)
-                .eq('id', session.user.id);
-             if (error) console.error("Error updating profile:", error);
-        }
+        setCurrentUserData(prev => ({
+            ...prev,
+            name: nickname,
+            ageGroup,
+            occupation
+        }));
+    } catch(err) {
+        console.error("Error updating profile", err);
     }
-    
-    // 기존 스토리들의 사용자 정보도 업데이트
-    setStories((prevStories) =>
-      prevStories.map((story) =>
-        story.userId === currentUserData.id
-          ? { 
-              ...story, 
-              userName: nickname,
-              userAgeGroup: ageGroup,
-              userOccupation: occupation,
-            }
-          : story
-      )
-    );
+  };
+  
+  const handleUpdateVisibility = async (field: 'ageGroup' | 'city' | 'occupation', value: boolean) => {
+    try {
+        const dbField = field === 'ageGroup' ? 'is_age_group_public' : 
+                        field === 'city' ? 'is_city_public' : 'is_occupation_public';
+        
+        const { error } = await supabase
+            .from('profiles')
+            .update({ [dbField]: value })
+            .eq('id', currentUserData.id);
+
+        if (error) throw error;
+
+        setCurrentUserData(prev => ({
+            ...prev,
+            [`show${field.charAt(0).toUpperCase() + field.slice(1)}`]: value,
+        }));
+    } catch(err) {
+        console.error("Error updating visibility", err);
+    }
   };
 
   const handleEditStory = (story: Story) => {
@@ -437,27 +344,90 @@ export default function MainApp() {
     setCreateStoryOpen(true);
   };
 
-  const handleUpdateStory = (storyId: string, content: string, categories: string[]) => {
-    setStories((prevStories) =>
-      prevStories.map((story) =>
-        story.id === storyId
-          ? { ...story, content, categories }
-          : story
-      )
-    );
-    setEditingStory(null);
-    setCreateStoryOpen(false);
+  const handleUpdateStory = async (storyId: string, content: string, categories: string[]) => {
+    try {
+        const { error } = await supabase
+            .from('stories')
+            .update({ content, categories, updated_at: new Date() })
+            .eq('id', storyId);
+
+        if (error) throw error;
+
+        setStories(prev => prev.map(s => s.id === storyId ? { ...s, content, categories } : s));
+        setEditingStory(null);
+        setCreateStoryOpen(false);
+    } catch (err) {
+        console.error("Error updating story", err);
+    }
   };
 
-  const handleDeleteStory = (storyId: string) => {
-    setStories((prevStories) => prevStories.filter((story) => story.id !== storyId));
+  const handleDeleteStory = async (storyId: string) => {
+    if(!window.confirm("정말 삭제하시겠습니까?")) return;
+    try {
+        const { error } = await supabase.from('stories').delete().eq('id', storyId);
+        if (error) throw error;
+        setStories(prev => prev.filter(s => s.id !== storyId));
+    } catch(err) {
+        console.error("Error deleting story", err);
+    }
   };
 
-  const handleReportStory = (storyId: string, reason: string, details?: string) => {
-    // 실제 구현에서는 서버로 신고 데이터를 전송
-    console.log("신고된 스토리:", { storyId, reason, details });
-    // 성공 메시지 또는 토스트 표시 가능
-    alert("신고가 접수되었습니다. 검토 후 조치하겠습니다.");
+  const handleReportStory = async (storyId: string, reason: string, details?: string) => {
+    try {
+        const { error } = await supabase.from('reports').insert({
+            report_type: 'story',
+            reported_item_id: storyId,
+            reported_by: currentUserData.id,
+            reason,
+            details,
+            status: 'pending'
+        });
+        if (error) throw error;
+        setToastMessage("신고가 접수되었습니다.");
+        setTimeout(() => setToastMessage(null), 3000);
+    } catch(err) {
+        console.error("Error reporting story", err);
+        setToastMessage("신고 접수 중 오류가 발생했습니다.");
+    }
+  };
+
+  const handleReportUser = async (userId: string, userName: string, reason: string, details?: string) => {
+     try {
+        const { error } = await supabase.from('reports').insert({
+            report_type: 'user',
+            reported_item_id: userId,
+            reported_by: currentUserData.id,
+            reason,
+            details,
+            status: 'pending'
+        });
+        if (error) throw error;
+        setToastMessage("유저 신고가 접수되었습니다.");
+        setTimeout(() => setToastMessage(null), 3000);
+    } catch(err) {
+        console.error("Error reporting user", err);
+        setToastMessage("신고 접수 중 오류가 발생했습니다.");
+    }
+  };
+
+  const handleHideStory = (storyId: string) => {
+    setHiddenStoryIds((prev) => [...prev, storyId]);
+    setToastMessage("해당 게시글이 가려졌습니다.");
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleUnhideStory = (storyId: string) => {
+    setHiddenStoryIds((prev) => prev.filter((id) => id !== storyId));
+  };
+
+  const handleBlockUser = (userId: string) => {
+    setBlockedUserIds((prev) => [...prev, userId]);
+    setToastMessage("해당 유저와 유저의 게시글들이 차단되었습니다.");
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleUnblockUser = (userId: string) => {
+    setBlockedUserIds((prev) => prev.filter((id) => id !== userId));
   };
 
   const handleToggleCategory = (category: string) => {
@@ -473,7 +443,10 @@ export default function MainApp() {
   };
 
   const filterStoriesByFeedType = (feedType: "worry" | "grateful") => {
-    const feedStories = stories.filter((story) => story.feedType === feedType);
+    const feedStories = stories
+      .filter((story) => story.feedType === feedType)
+      .filter((story) => !hiddenStoryIds.includes(story.id))
+      .filter((story) => !blockedUserIds.includes(story.userId));
     return selectedCategories.length === 0
       ? feedStories
       : feedStories.filter((story) =>
@@ -484,9 +457,10 @@ export default function MainApp() {
   const worryStories = filterStoriesByFeedType("worry");
   const gratefulStories = filterStoriesByFeedType("grateful");
 
-  const empathizedStories = stories.filter((story) =>
-    story.empathizedBy.includes(currentUserData.id)
-  );
+  const empathizedStories = stories
+    .filter((story) => story.empathizedBy.includes(currentUserData.id))
+    .filter((story) => !hiddenStoryIds.includes(story.id))
+    .filter((story) => !blockedUserIds.includes(story.userId));
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#faf8f3] via-[#f5f3ed] to-[#ede8dc]">
@@ -559,6 +533,9 @@ export default function MainApp() {
                 onEdit={handleEditStory}
                 onDelete={handleDeleteStory}
                 onReport={handleReportStory}
+                onHide={handleHideStory}
+                onBlockUser={handleBlockUser}
+                onReportUser={handleReportUser}
               />
             </div>
           </TabsContent>
@@ -569,7 +546,7 @@ export default function MainApp() {
                 <div>
                   <h2 className="text-2xl font-medium mb-2">💛 감사와 따뜻함</h2>
                   <p className="text-muted-foreground">
-                    따뜻했던 순간을 나누세요. 당신의 이야기가 누군가에게는 힘이 돼요.
+                    따뜻했던 순간을 나누세요. 당신의 이야기가 누군가에게 힘이 돼요.
                   </p>
                 </div>
               </div>
@@ -583,7 +560,12 @@ export default function MainApp() {
                   fontSize={fontSize}
                   fontWeight={fontWeight}
                   fullScreenMode={true}
+                  onEdit={handleEditStory}
+                  onDelete={handleDeleteStory}
                   onReport={handleReportStory}
+                  onHide={handleHideStory}
+                  onBlockUser={handleBlockUser}
+                  onReportUser={handleReportUser}
                 />
               </div>
             </div>
@@ -622,6 +604,7 @@ export default function MainApp() {
                 user={currentUserData}
                 stories={stories}
                 onUpdateProfile={handleUpdateProfile}
+                onUpdateVisibility={handleUpdateVisibility}
                 fontSize={fontSize}
                 fontWeight={fontWeight}
                 onEdit={handleEditStory}
@@ -632,10 +615,17 @@ export default function MainApp() {
 
           <TabsContent value="settings" className="space-y-6">
             <Settings
+              user={currentUserData}
               fontSize={fontSize}
               onFontSizeChange={setFontSize}
               fontWeight={fontWeight}
               onFontWeightChange={setFontWeight}
+              blockedUserIds={blockedUserIds}
+              onUnblockUser={handleUnblockUser}
+              hiddenStoryIds={hiddenStoryIds}
+              onUnhideStory={handleUnhideStory}
+              stories={stories}
+              onUpdateVisibility={handleUpdateVisibility}
             />
           </TabsContent>
         </Tabs>
@@ -730,6 +720,24 @@ export default function MainApp() {
         editingStory={editingStory}
         onUpdateStory={handleUpdateStory}
       />
+
+      {/* Toast Message */}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+            className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 bg-[#f5f3ed] text-[#0c0c14] border border-[#e8e6e0] rounded-lg shadow-lg max-w-md text-center"
+            style={{
+              backdropFilter: 'blur(8px)'
+            }}
+          >
+            <p className="text-sm font-medium">{toastMessage}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

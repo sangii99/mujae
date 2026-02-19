@@ -59,7 +59,16 @@ export function MyStoryCard({ story, fontSize = 16, fontWeight = "normal", onEdi
             <div className="flex items-center gap-2">
               <h3 className="font-medium">{story.userName}</h3>
               <span className="text-xs text-muted-foreground/70">
-                · {story.userCity} · {story.userAgeGroup} {story.userOccupation}
+                {(() => {
+                  const parts = [];
+                  // Use story specific settings
+                  if (story.showCity !== false && story.userCity && story.userCity !== "비공개") parts.push(story.userCity);
+                  if (story.showAgeGroup !== false && story.userAgeGroup && story.userAgeGroup !== "비공개") parts.push(story.userAgeGroup);
+                  if (story.showOccupation !== false && story.userOccupation && story.userOccupation !== "비공개") parts.push(story.userOccupation);
+                  
+                  if (parts.length === 0) return '';
+                  return `· ${parts.join(' · ')}`;
+                })()}
               </span>
             </div>
             <div className="flex items-center gap-1 text-muted-foreground text-sm mt-1">
