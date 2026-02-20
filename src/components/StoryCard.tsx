@@ -42,11 +42,12 @@ interface StoryCardProps {
   onHide?: (storyId: string) => void;
   onUnhide?: (storyId: string) => void;
   onUnblockUser?: (userId: string) => void;
+  onReportUser?: (userId: string, userName: string, reason: string, details?: string) => void;
   hiddenStoryIds?: string[];
   blockedUserIds?: string[];
 }
 
-export function StoryCard({ story, onEmpathize, onSendSticker, currentUserId, currentUserStickerCount, fontSize = 16, fontWeight = "normal", onStickerPickerOpenChange, onEdit, onDelete, onReport, onHideStory, onBlockUser, onHide, onUnhide, onUnblockUser, hiddenStoryIds = [], blockedUserIds = [] }: StoryCardProps) {
+export function StoryCard({ story, onEmpathize, onSendSticker, currentUserId, currentUserStickerCount, fontSize = 16, fontWeight = "normal", onStickerPickerOpenChange, onEdit, onDelete, onReport, onHideStory, onBlockUser, onHide, onUnhide, onUnblockUser, onReportUser, hiddenStoryIds = [], blockedUserIds = [] }: StoryCardProps) {
   const hasEmpathized = story.empathizedBy.includes(currentUserId);
   const hasSentSticker = story.stickers.some((s) => s.userId === currentUserId);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
@@ -146,7 +147,7 @@ export function StoryCard({ story, onEmpathize, onSendSticker, currentUserId, cu
   // Hidden story card
   if (isHidden && !isBlocked) {
     return (
-      <Card className="p-6 bg-[#f5f3ed] border-[#e8e6e0] relative flex flex-col items-center justify-center min-h-[120px] gap-2">
+      <Card className="p-4 md:p-6 bg-[#f5f3ed] border-[#e8e6e0] relative flex flex-col items-center justify-center min-h-[120px] gap-2">
         <p className="text-muted-foreground text-sm">가려진 게시글입니다.</p>
         <Button
           variant="outline"
@@ -162,7 +163,7 @@ export function StoryCard({ story, onEmpathize, onSendSticker, currentUserId, cu
   // Blocked user card
   if (isBlocked) {
     return (
-      <Card className="p-6 bg-[#f5f3ed] border-[#e8e6e0] relative flex flex-col items-center justify-center min-h-[120px] gap-3">
+      <Card className="p-4 md:p-6 bg-[#f5f3ed] border-[#e8e6e0] relative flex flex-col items-center justify-center min-h-[120px] gap-3">
         <p className="text-muted-foreground text-sm text-center">
           차단된 유저의 게시글입니다.
           <br />
@@ -180,7 +181,7 @@ export function StoryCard({ story, onEmpathize, onSendSticker, currentUserId, cu
   }
 
   return (
-    <Card className="p-6 hover:shadow-lg transition-shadow bg-[#f5f3ed] border-[#e8e6e0] relative">
+    <Card className="p-4 md:p-6 hover:shadow-lg transition-shadow bg-[#f5f3ed] border-[#e8e6e0] relative">
       {/* Write Reason Mode - Full Card Transform */}
       {showReportMenu && reportMenuStep === 'writeReason' ? (
         <div className="space-y-4">
@@ -264,7 +265,7 @@ export function StoryCard({ story, onEmpathize, onSendSticker, currentUserId, cu
             {story.feedType === "worry" && (
               <div className="flex flex-wrap gap-2">
                 {story.categories.map((category) => (
-                  <Badge key={category} variant="secondary">
+                  <Badge key={category} variant="secondary" className="text-xs px-2 py-0.5">
                     {category}
                   </Badge>
                 ))}

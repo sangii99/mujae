@@ -614,19 +614,21 @@ export default function MainApp() {
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-6">
-            <Settings
-              user={currentUserData}
-              fontSize={fontSize}
-              onFontSizeChange={setFontSize}
-              fontWeight={fontWeight}
-              onFontWeightChange={setFontWeight}
-              blockedUserIds={blockedUserIds}
-              onUnblockUser={handleUnblockUser}
-              hiddenStoryIds={hiddenStoryIds}
-              onUnhideStory={handleUnhideStory}
-              stories={stories}
-              onUpdateVisibility={handleUpdateVisibility}
-            />
+            <div className="max-w-4xl mx-auto">
+              <Settings
+                user={currentUserData}
+                fontSize={fontSize}
+                onFontSizeChange={setFontSize}
+                fontWeight={fontWeight}
+                onFontWeightChange={setFontWeight}
+                blockedUserIds={blockedUserIds}
+                onUnblockUser={handleUnblockUser}
+                hiddenStoryIds={hiddenStoryIds}
+                onUnhideStory={handleUnhideStory}
+                stories={stories}
+                onUpdateVisibility={handleUpdateVisibility}
+              />
+            </div>
           </TabsContent>
         </Tabs>
       </main>
@@ -660,7 +662,7 @@ export default function MainApp() {
               }`}
               onClick={() => setActiveTab("worry")}
             >
-              <span className="text-xl">🌧️</span>
+              <span className="text-xl">😢</span>
             </button>
             
             <button
@@ -669,7 +671,7 @@ export default function MainApp() {
               }`}
               onClick={() => setActiveTab("grateful")}
             >
-              <span className="text-xl">☀️</span>
+              <span className="text-xl">💛</span>
             </button>
 
             <button
@@ -700,7 +702,7 @@ export default function MainApp() {
               }`}
               onClick={() => setActiveTab("settings")}
             >
-              <SettingsIcon className="h-5 w-5" />
+              <span className="text-xl">⚙️</span>
             </button>
           </div>
         </div>

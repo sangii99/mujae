@@ -48,7 +48,7 @@ export function CreateStory({ onCreateStory, onUpdateStory, open, onOpenChange, 
   const [showExitDialog, setShowExitDialog] = useState(false);
   const [showLoadDraftDialog, setShowLoadDraftDialog] = useState(false);
   const [showOverwriteDraftDialog, setShowOverwriteDraftDialog] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.innerWidth < 768 : false);
   const [isDraftLoaded, setIsDraftLoaded] = useState(false); // 임시 저장된 글을 불러왔는지 추적
   const [showCategoryLimitMessage, setShowCategoryLimitMessage] = useState(false); // 카테고리 제한 메시지
   
@@ -64,7 +64,7 @@ export function CreateStory({ onCreateStory, onUpdateStory, open, onOpenChange, 
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };
-    checkMobile();
+    // Initial check is handled in useState, but we still need listener for resize
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
@@ -99,6 +99,11 @@ export function CreateStory({ onCreateStory, onUpdateStory, open, onOpenChange, 
       };
       localStorage.setItem("storyDraft", JSON.stringify(draft));
     }
+  };
+
+  const handleStoreDraft = () => {
+    saveDraft();
+    if (onOpenChange) onOpenChange(false);
   };
 
   // Delete draft
@@ -291,48 +296,58 @@ export function CreateStory({ onCreateStory, onUpdateStory, open, onOpenChange, 
           )}
         </AnimatePresence>
 
-        {/* Full Screen Overlay - Mobile - Doesn't cover bottom nav */}
-        <div className="fixed top-0 left-0 right-0 bottom-16 z-[70] bg-[#f5f3ed]">
+        {/* Full Screen Overlay - Mobile - Covers everything */}
+        <div className="fixed inset-0 z-[100] bg-[#f5f3ed] flex flex-col">
           <AnimatePresence mode="wait">
             {/* Step 1: 글 작성 */}
             {step === 1 && (
-              <motion.div
+            <motion.div
                 key="step1"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.2 }}
-                className="h-full flex flex-col"
-              >
-                {/* Header */}
-                <div className="flex-shrink-0 px-4 py-4 border-b border-[#e8e6e0] bg-[#f5f3ed] flex items-center justify-between">
-                  <button
-                    onClick={() => {
-                      const hasDraft = localStorage.getItem("storyDraft");
-                      if (hasDraft) {
-                        setShowLoadDraftDialog(true);
-                      }
-                    }}
-                    disabled={!localStorage.getItem("storyDraft") || editingStory !== null}
-                    className={`p-2 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-                      editingStory ? 'invisible' : ''
-                    }`}
-                  >
-                    <FolderOpen className="h-5 w-5" />
-                  </button>
-                  <h2 className="text-lg font-bold">
+                initial={{ x: "100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "-100%" }}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                className="flex flex-col h-full overflow-hidden" 
+            >
+                <div className="flex items-center justify-between p-4 border-b">
+                   <Button 
+                        variant="ghost" 
+                        size="icon"
+                        className="text-muted-foreground"
+                        onClick={() => {
+                          const hasDraft = localStorage.getItem("storyDraft");
+                          if (hasDraft) {
+                            setShowLoadDraftDialog(true);
+                          }
+                        }}
+                        disabled={!localStorage.getItem("storyDraft") || editingStory !== null}
+                    >
+                        <FolderOpen className="h-6 w-6"/>
+                    </Button>
+
+                  <div className="text-lg font-medium">
                     {editingStory ? "게시글 수정" : "새 게시글 작성"}
-                  </h2>
-                  <button
-                    onClick={handleClose}
-                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => {
+                        if (content.trim()) {
+                            setShowExitDialog(true);
+                        } else {
+                            onOpenChange && onOpenChange(false);
+                        }
+                    }}>
+                    <X className="h-6 w-6" />
+                  </Button>
                 </div>
 
-                {/* Content Area - Expanded */}
-                <div className="flex-1 px-4 py-4 overflow-y-auto bg-white/50 backdrop-blur">
+                <div className="flex-1 p-4 space-y-4 overflow-y-auto pb-24">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">
+                      {feedType === "worry" 
+                        ? (editingStory ? "당신의 걱정과 불안을 수정하여 들려주세요." : "당신의 걱정과 불안을 들려주세요.")
+                        : (editingStory ? "당신의 감사와 따뜻한 경험을 수정하여 들려주세요." : "당신의 감사와 따뜻한 경험을 들려주세요.")}
+                    </label>
+                  </div>
+                  
                   <Textarea
                     placeholder={
                       feedType === "worry"
@@ -341,126 +356,147 @@ export function CreateStory({ onCreateStory, onUpdateStory, open, onOpenChange, 
                     }
                     value={content}
                     onChange={handleContentChange}
-                    className="min-h-full resize-none border-none bg-transparent shadow-none focus-visible:ring-0 text-base"
+                    className="flex-1 min-h-0 text-lg resize-none border-0 focus-visible:ring-0 px-0 bg-transparent placeholder:text-muted-foreground/50 leading-relaxed"
                     maxLength={MAX_CHARS}
-                    autoFocus
                   />
-                </div>
 
-                {/* Floating Next Button */}
-                <button
-                  onClick={() => feedType === "grateful" ? handleGratefulSubmit() : setStep(2)}
-                  disabled={!content.trim() || content.length > MAX_CHARS}
-                  className="fixed bottom-24 right-6 w-12 h-12 bg-black text-white rounded-full shadow-lg hover:bg-gray-800 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center z-10"
-                >
-                  {feedType === "grateful" ? (
-                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  ) : (
-                    <ArrowRight className="h-5 w-5" />
-                  )}
-                </button>
-              </motion.div>
-            )}
-
-            {/* Step 2: 카테고리 및 공개 설정 */}
-            {step === 2 && (
-              <motion.div
-                key="step2"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                transition={{ duration: 0.2 }}
-                className="h-full flex flex-col"
-              >
-                {/* Header */}
-                <div className="flex-shrink-0 px-4 py-4 border-b border-[#e8e6e0] bg-[#f5f3ed] flex items-center justify-between">
-                  <button
-                    onClick={() => setStep(1)}
-                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                  >
-                    <ArrowLeft className="h-5 w-5" />
-                  </button>
-                  <h2 className="text-lg font-bold">카테고리 선택</h2>
-                  <button
-                    onClick={handleClose}
-                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
-
-                {/* Content Area */}
-                <div className="flex-1 px-4 py-6 overflow-y-auto pb-32 space-y-6 bg-white/50 backdrop-blur">
-                  {/* 공개 설정 */}
-                  <div className="space-y-3">
-                    <label className="text-sm font-medium">공개 설정</label>
-                    <div className="flex gap-2">
-                      <Button
-                        variant={isPublic ? "default" : "outline"}
-                        className="flex-1"
-                        onClick={() => setIsPublic(true)}
-                      >
-                        전체공개
-                      </Button>
-                      <Button
-                        variant={!isPublic ? "default" : "outline"}
-                        className={`flex-1 ${
-                          !isPublic 
-                            ? 'bg-[#6b4c7a] hover:bg-[#5a3e66] text-white border-[#6b4c7a]' 
-                            : ''
+                  {/* 글자 수 표시 */}
+                  <div className="flex justify-end">
+                     <p 
+                        className={`text-xs transition-colors ${
+                        content.length > MAX_CHARS 
+                            ? 'text-red-500 animate-shake' 
+                            : 'text-muted-foreground'
                         }`}
-                        onClick={() => setIsPublic(false)}
-                      >
-                        나만보기
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* 카테고리 선택 */}
-                  <div className="space-y-3">
-                    <label className="text-sm font-medium">
-                      이야기와 관련된 카테고리를 선택하세요 (최소 1개)
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {AVAILABLE_CATEGORIES.map((category) => (
-                        <Badge
-                          key={category}
-                          variant={selectedCategories.includes(category) ? "default" : "outline"}
-                          className="cursor-pointer px-3 py-1.5"
-                          onClick={() => toggleCategory(category)}
-                        >
-                          {category}
-                        </Badge>
-                      ))}
-                    </div>
+                    >
+                        {content.length > MAX_CHARS 
+                        ? `${content.length}자 (글자 수 제한을 넘었습니다.)` 
+                        : `${content.length}자 (750자 제한)`}
+                    </p>
                   </div>
                 </div>
 
-                {/* Footer Buttons */}
-                <div className="absolute bottom-0 left-0 right-0 px-4 py-4 border-t border-[#e8e6e0] bg-[#f5f3ed]">
-                  <div className="flex gap-2">
+                {/* Floating Action Button (Next / Submit) */}
+                <div className="fixed bottom-8 right-6 z-[120]">
                     <Button
-                      variant="outline"
-                      className="flex-1 bg-white"
-                      onClick={handleClose}
+                    className="w-14 h-14 rounded-full shadow-xl bg-[#8E8E93] hover:bg-[#7a7a7f] text-white flex items-center justify-center p-0 disabled:opacity-50"
+                    size="icon"
+                    onClick={() => feedType === "grateful" ? handleGratefulSubmit() : setStep(2)}
+                    disabled={!content.trim() || content.length > MAX_CHARS}
                     >
-                      취소
+                        {feedType === "grateful" ? (
+                            <span className="text-2xl">✔️</span>
+                        ) : (
+                            <ArrowRight className="h-6 w-6" />
+                        )}
                     </Button>
-                    <Button
-                      className="flex-1"
-                      onClick={handleSubmit}
-                      disabled={selectedCategories.length === 0}
-                    >
-                      {editingStory ? "수정 완료" : "공유하기"}
-                    </Button>
-                  </div>
                 </div>
               </motion.div>
             )}
+
+            {/* Step 2: 카테고리 및 공개 설정 (Worry Type Only) */}
+            {step === 2 && feedType === "worry" && (
+                <motion.div
+                    key="step2"
+                    initial={{ x: "100%" }}
+                    animate={{ x: 0 }}
+                    exit={{ x: "-100%" }}
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    className="flex flex-col h-full overflow-hidden" 
+                >
+                    <div className="flex items-center justify-between p-4 border-b">
+                        <Button variant="ghost" size="icon" onClick={() => setStep(1)}>
+                            <ArrowLeft className="h-6 w-6" />
+                        </Button>
+                        <div className="text-lg font-medium">카테고리 선택</div>
+                         <Button variant="ghost" size="icon" onClick={() => {
+                            if (content.trim()) {
+                                setShowExitDialog(true);
+                            } else {
+                                onOpenChange && onOpenChange(false);
+                            }
+                        }}>
+                        <X className="h-6 w-6" />
+                      </Button>
+                    </div>
+
+                    <div className="flex-1 p-4 space-y-6 overflow-y-auto pb-20">
+                         {/* 공개 설정 */}
+                        <div className="space-y-3">
+                            <label className="text-sm font-medium">공개 설정</label>
+                            <div className="flex gap-2">
+                            <Button
+                                variant={isPublic ? "default" : "outline"}
+                                className="flex-1"
+                                onClick={() => setIsPublic(true)}
+                            >
+                                전체공개
+                            </Button>
+                            <Button
+                                variant={!isPublic ? "default" : "outline"}
+                                className={`flex-1 ${
+                                !isPublic 
+                                    ? 'bg-[#6b4c7a] hover:bg-[#5a3e66] text-white border-[#6b4c7a]' 
+                                    : ''
+                                }`}
+                                onClick={() => setIsPublic(false)}
+                            >
+                                나만보기
+                            </Button>
+                            </div>
+                        </div>
+
+                        {/* 카테고리 선택 */}
+                        <div className="space-y-3">
+                            <label className="text-sm font-medium">
+                                이야기와 관련된 카테고리를 선택하세요 (최소 1개)
+                            </label>
+                            <div className="flex flex-wrap gap-2">
+                                {AVAILABLE_CATEGORIES.map((category) => (
+                                <Badge
+                                    key={category}
+                                    variant={selectedCategories.includes(category) ? "default" : "outline"}
+                                    className={`cursor-pointer py-2 px-3 text-sm ${
+                                        selectedCategories.includes(category) 
+                                        ? 'bg-[#6b4c7a] hover:bg-[#5a3e66]' 
+                                        : 'bg-transparent hover:bg-accent'
+                                    }`}
+                                    onClick={() => toggleCategory(category)}
+                                >
+                                    {category}
+                                </Badge>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Bottom Bar for Step 2 */}
+                    <div className="absolute bottom-0 left-0 right-0 p-4 border-t bg-[#f5f3ed] flex justify-between items-center z-10 gap-2">
+                         <div className="flex-1">
+                            <Button 
+                                variant="outline" 
+                                className="w-full"
+                                onClick={() => onOpenChange && onOpenChange(false)}
+                            >
+                                취소
+                            </Button>
+                        </div>
+                        <div className="flex-1">
+                            <Button 
+                                className="w-full bg-[#6b4c7a] hover:bg-[#5a3e66] text-white"
+                                onClick={handleSubmit}
+                                disabled={!content.trim() || selectedCategories.length === 0}
+                            >
+                                {editingStory ? "수정 완료" : "공유하기"}
+                            </Button>
+                        </div>
+                    </div>
+                </motion.div>
+            )}
+            
           </AnimatePresence>
         </div>
+
 
         {/* Exit Confirmation Dialog */}
         <AlertDialog open={showExitDialog} onOpenChange={setShowExitDialog}>
